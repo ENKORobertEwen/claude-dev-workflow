@@ -149,13 +149,46 @@ After all phases are complete:
    git push -u origin feat/XXX-feature-name
    ```
 
-### 5. Create Pull Request (GitHub only)
+### 5. Start the Application
+
+Start the application so it can be tested:
+
+```bash
+./do run
+```
+
+This runs in the background. The application will be accessible via the public HOST URLs (see Runtime Environment in CLAUDE.md).
+
+Determine which `$HOST1`–`$HOST4` URLs are relevant for this project by reading CLAUDE.md's Runtime Environment section.
+
+### 6. Create Pull Request (GitHub only)
 
 Check if `GITHUB_TOKEN` is set in the environment. If so, create a pull request using the GitHub REST API.
 
 **Determine the repo:** Parse the `origin` remote URL to extract `owner/repo`.
 
-**Generate PR body from the plan:** Use the plan's Overview section as the summary. List phases as completed checklist items. Include the acceptance criteria table.
+**Generate PR body from the plan AND the runtime summary.** The PR body must include everything a reviewer needs — the same information shown in the CLI summary. Specifically:
+
+```
+## Summary
+
+[from plan overview]
+
+## Live URLs
+
+The application is running and can be tested at:
+- **Frontend:** $HOST1 (or whichever is relevant)
+- **API:** $HOST2 (or whichever is relevant)
+
+## Acceptance Criteria
+
+[from plan — as a checklist, all checked]
+
+## Phases
+
+- [x] Phase 1: ...
+- [x] Phase 2: ...
+```
 
 **Create the PR:**
 
@@ -168,33 +201,23 @@ curl -s -X POST \
     "title": "XXX — Feature Name",
     "head": "feat/XXX-feature-name",
     "base": "main",
-    "body": "## Summary\n\n[from plan overview]\n\n## Acceptance Criteria\n\n[from plan]\n\n## Phases\n\n- [x] Phase 1: ...\n- [x] Phase 2: ...\n..."
+    "body": "[the full body as described above]"
   }'
 ```
 
 **If `GITHUB_TOKEN` is not set:** Skip PR creation. Inform the user that the branch was pushed and they can create a PR manually. Mention that setting `GITHUB_TOKEN` enables automatic PR creation.
 
-### 6. Start the Application
-
-After the PR is created (or the branch is pushed), start the application so it can be tested:
-
-```bash
-./do run
-```
-
-This runs in the background. The application will be accessible via the public HOST URLs (see Runtime Environment in CLAUDE.md).
-
-Include the accessible URLs in the summary so the user (or PR reviewers) can test immediately.
-
 ### 7. Summary
 
-Provide a summary:
+Print the same summary to the CLI that was included in the PR body:
 - List of phases completed
 - List of commits created
 - Branch name
 - PR URL (if created)
 - Application URLs (from `$HOST1`–`$HOST4` environment variables, whichever are relevant)
 - Confirmation that the plan is fully implemented and the app is running
+
+**The CLI summary and the PR body must contain the same information.** The PR is the permanent record — anyone looking at the PR should see exactly what the implementer saw.
 
 ## Critical Rules
 
@@ -218,8 +241,9 @@ Provide a summary:
 - **Creates small, focused commits** — One per phase, not batched
 - **Amends the last commit** to include the plan move to `done/`
 - **Pushes the branch** after all phases complete
-- **Creates a PR** via GitHub REST API if `GITHUB_TOKEN` is available
-- **Starts the application** with `./do run` after the PR so it's testable
+- **Starts the application** with `./do run` before creating the PR
+- **Creates a PR** via GitHub REST API if `GITHUB_TOKEN` is available, with live URLs in the body
+- **Keeps CLI summary and PR body in sync** — same information in both
 
 ### Sub-Agents NEVER:
 

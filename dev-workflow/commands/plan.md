@@ -91,6 +91,7 @@ The application runs behind a reverse proxy. Four port/host pairs are available 
 
 - **Port binding**: Server processes MUST bind to `$PORT1`–`$PORT4`, never hardcoded ports. The plan must specify which package uses which port variable.
 - **No localhost**: The application is accessed via the public `$HOST1`–`$HOST4` URLs, never `localhost`. This affects:
+  - **Framework allowed hosts**: Most frameworks block requests from unrecognized hostnames. Vite has `server.allowedHosts`, Django has `ALLOWED_HOSTS`, Next.js has `hostname`, webpack-dev-server has `allowedHosts`. These MUST include the HOST variable values or be set to allow all. **This is the most common source of "app runs but can't be accessed" bugs.**
   - **CORS origins**: Must allow `$HOST1`–`$HOST4`, not `localhost`
   - **Cookie domains**: Must be set for the HOST domain, not `localhost`
   - **CSP headers**: Must reference the HOST URLs

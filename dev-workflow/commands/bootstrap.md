@@ -113,6 +113,7 @@ Key properties:
 - **No localhost:** Users access the application via `$HOST1`–`$HOST4`, never `localhost`
 - **Port variables:** Servers bind to `$PORT1`–`$PORT4`, never hardcoded ports
 - **Reverse proxy:** Each PORT has a corresponding public HOST URL with TLS termination
+- **Framework allowed hosts:** Vite, Django, Next.js, etc. must include the HOST values or the app rejects requests
 - **Security implications:** CORS, cookies, CSP, OAuth redirects must all use the HOST URLs
 
 ---
@@ -294,6 +295,7 @@ The application runs behind a reverse proxy. Four port/host pairs are available 
 
 - **Port binding**: Server processes MUST bind to `$PORT1`–`$PORT4`, never hardcoded ports.
 - **No localhost**: The application is accessed via the public `$HOST1`–`$HOST4` URLs, never `localhost`. This affects:
+  - Framework allowed hosts — Vite (`server.allowedHosts`), Django (`ALLOWED_HOSTS`), Next.js (`hostname`), webpack-dev-server (`allowedHosts`) must include HOST values
   - CORS origins — must allow the HOST URLs
   - Cookie domains — must match the HOST domain
   - CSP headers — must reference HOST URLs

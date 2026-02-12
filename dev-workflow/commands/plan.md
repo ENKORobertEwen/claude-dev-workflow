@@ -322,15 +322,18 @@ This is the most critical reviewer. Checks:
 
 ### 11. Final Review with User
 
-Present the complete, reviewed plan to the user. Include a summary of what the review process found and fixed. Iterate until they approve:
+Present the complete, reviewed plan to the user. Include a summary of what the review process found and fixed:
 
 - Walk through each phase briefly
 - Highlight key decisions and their rationale
 - Highlight the acceptance test strategy
 - Note any `./do` script changes
-- Ask if anything needs to change
 
-The plan is ready when the user approves it.
+Then use `AskUserQuestion` to present a selection with two options:
+- **"Commit and push (Recommended)"** — The plan is approved. Proceed to step 12.
+- **"I have changes"** — The user wants to iterate. Listen to their feedback, update the plan, and present the selection again.
+
+Do NOT ask an open-ended question. Always use the selection box so the user can approve quickly.
 
 ### 12. Commit and Push
 

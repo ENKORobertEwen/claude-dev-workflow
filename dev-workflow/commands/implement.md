@@ -77,7 +77,22 @@ Rules:
 - Identify all phases
 - Create a task list with all phases
 
-### 2. Execute Each Phase
+### 2. Create or Resume Branch
+
+Derive a branch name from the plan filename. For example, plan `003-PLAN-USER-AUTH.md` becomes branch `feat/003-user-auth`.
+
+**New implementation:**
+1. Ensure you're on `main` and it's up to date: `git checkout main && git pull`
+2. Create and switch to the branch: `git checkout -b feat/XXX-feature-name`
+
+**Resuming a partial implementation:**
+If the branch already exists (from a previous interrupted run):
+1. Switch to the existing branch: `git checkout feat/XXX-feature-name`
+2. Check `git log --oneline` to determine which phases were already committed
+3. Skip completed phases and continue from the next incomplete phase
+4. Inform the user which phases were already done and where you're resuming from
+
+### 3. Execute Each Phase
 
 For EACH phase in the plan:
 
@@ -114,38 +129,85 @@ EOF
 
 **e) Mark phase complete and move to next**
 
-### 3. Finalize
+### 4. Finalize
 
 After all phases are complete:
 
-1. Move the plan from `product/plans/todo/` to `product/plans/done/`
-2. Create a commit for moving the plan file
-3. Provide a summary:
-   - List of phases completed
-   - List of commits created
-   - Confirmation that the plan is fully implemented
+1. Move the plan from `product/plans/todo/` to `product/plans/done/`:
+   ```bash
+   git mv product/plans/todo/XXX-PLAN-FEATURE-NAME.md product/plans/done/
+   ```
+2. Amend the last phase commit to include the plan move:
+   ```bash
+   git add product/plans/
+   git commit --amend --no-edit
+   ```
+3. Push the branch:
+   ```bash
+   git push -u origin feat/XXX-feature-name
+   ```
+
+### 5. Create Pull Request (GitHub only)
+
+Check if `GITHUB_TOKEN` is set in the environment. If so, create a pull request using the GitHub REST API.
+
+**Determine the repo:** Parse the `origin` remote URL to extract `owner/repo`.
+
+**Generate PR body from the plan:** Use the plan's Overview section as the summary. List phases as completed checklist items. Include the acceptance criteria table.
+
+**Create the PR:**
+
+```bash
+curl -s -X POST \
+  -H "Authorization: token $GITHUB_TOKEN" \
+  -H "Accept: application/vnd.github.v3+json" \
+  "https://api.github.com/repos/OWNER/REPO/pulls" \
+  -d '{
+    "title": "XXX — Feature Name",
+    "head": "feat/XXX-feature-name",
+    "base": "main",
+    "body": "## Summary\n\n[from plan overview]\n\n## Acceptance Criteria\n\n[from plan]\n\n## Phases\n\n- [x] Phase 1: ...\n- [x] Phase 2: ...\n..."
+  }'
+```
+
+**If `GITHUB_TOKEN` is not set:** Skip PR creation. Inform the user that the branch was pushed and they can create a PR manually. Mention that setting `GITHUB_TOKEN` enables automatic PR creation.
+
+### 6. Summary
+
+Provide a summary:
+- List of phases completed
+- List of commits created
+- Branch name
+- PR URL (if created)
+- Confirmation that the plan is fully implemented
 
 ## Critical Rules
 
 ### The Orchestrator NEVER:
 
 - **Runs `./do check`** — Delegate to a verification sub-agent
-- **Runs any shell commands** — Except `git` commands for commits and `mv` for moving the plan file
+- **Runs any shell commands** — Except `git` commands for branch/commit operations, `curl` for PR creation, and `mv` for moving the plan file
 - **Implements code changes** — Delegate to implementation sub-agents
 - **Fixes errors** — Delegate to fix sub-agents
 - **Skips verification** — Every phase must pass `./do check` before committing
 
 ### The Orchestrator ALWAYS:
 
+- **Creates a feature branch** from main before starting
+- **Resumes from where it left off** if the branch already exists
 - **Delegates implementation** to sub-agents
 - **Delegates verification** to sub-agents
 - **Delegates error fixing** to sub-agents
 - **Creates commits** after verification passes
 - **Stops on infrastructure failures** and asks the user for help
 - **Creates small, focused commits** — One per phase, not batched
+- **Amends the last commit** to include the plan move to `done/`
+- **Pushes the branch** after all phases complete
+- **Creates a PR** via GitHub REST API if `GITHUB_TOKEN` is available
 
 ### Sub-Agents NEVER:
 
 - Run `./do check` (except verification sub-agents)
 - Create commits
 - Move plan files
+- Push or create branches

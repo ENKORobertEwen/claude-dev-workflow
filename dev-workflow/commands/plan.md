@@ -187,9 +187,19 @@ Present the complete, reviewed plan to the user. Include a summary of what the r
 
 The plan is ready when the user approves it.
 
+### 12. Commit and Push
+
+Once the user approves the plan:
+
+1. Stage the plan file: `git add product/plans/todo/XXX-PLAN-FEATURE-NAME.md`
+2. Commit: `Plan: XXX — Feature Name`
+3. Push to main: `git push origin main`
+
+The plan is now on main and ready for `/dev:implement` to pick up.
+
 ## Critical Rules
 
-1. **The `/dev:plan` command writes the plan document ONLY.** It does NOT execute any changes — no code, no DDD edits, no ADR creation. All of that happens when `/dev:implement` executes the plan.
+1. **The `/dev:plan` command writes the plan document, commits, and pushes.** It does NOT execute any code changes — no code, no DDD edits, no ADR creation. All of that happens when `/dev:implement` executes the plan.
 
 2. **Every significant decision goes through the user.** Don't make architectural choices unilaterally. Present options, explain trade-offs, get approval.
 
@@ -206,3 +216,5 @@ The plan is ready when the user approves it.
 8. **Plans reference the template format.** See `templates/plan.md.template` for the expected structure.
 
 9. **Plans go in `product/plans/todo/`.** After implementation via `/dev:implement`, they are moved to `product/plans/done/`.
+
+10. **Always commit and push.** The approved plan is committed to main and pushed immediately.

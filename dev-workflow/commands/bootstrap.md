@@ -36,7 +36,15 @@ Help the user identify the initial set of packages. Each package is a top-level 
 
 It's fine to start with one package. More can be added later via `/dev:plan`.
 
-### 4. Create Directory Structure
+### 4. Assign Ports and Hosts
+
+The runtime environment provides four port/host pairs via environment variables (`$PORT1`/`$HOST1` through `$PORT4`/`$HOST4`). Each port is behind a reverse proxy at its corresponding HOST URL.
+
+Ask: "Which packages need a port? For example, does the backend need PORT1 and the frontend need PORT2?"
+
+Map each server-capable package to a port/host pair. Record this mapping — it goes into the CLAUDE.md Runtime Environment section. Not all packages need ports (e.g., a shared library doesn't).
+
+### 6. Create Directory Structure
 
 Create the following files and directories:
 
@@ -60,7 +68,7 @@ product/
 
 Create a `.gitkeep` in each empty package directory so they are tracked in git. Empty directories get a `.gitkeep` file.
 
-### 5. Generate `product/DDD/glossary.md`
+### 7. Generate `product/DDD/glossary.md`
 
 Create the glossary with the methodology terms pre-filled. Add project-specific domain terms as the project develops.
 
@@ -94,6 +102,15 @@ Key properties:
 ### Package
 A distinct unit within the monorepo — a service, library, frontend app, or other self-contained module. Packages live in top-level directories and are orchestrated by the `./do` script.
 
+### Runtime Environment
+The application runs behind a reverse proxy. Four port/host pairs are available via environment variables (`$PORT1`/`$HOST1` through `$PORT4`/`$HOST4`). Each port listens locally and is exposed publicly via its HOST URL.
+
+Key properties:
+- **No localhost:** Users access the application via `$HOST1`–`$HOST4`, never `localhost`
+- **Port variables:** Servers bind to `$PORT1`–`$PORT4`, never hardcoded ports
+- **Reverse proxy:** Each PORT has a corresponding public HOST URL with TLS termination
+- **Security implications:** CORS, cookies, CSP, OAuth redirects must all use the HOST URLs
+
 ---
 
 ## Core Domain Terms
@@ -113,7 +130,7 @@ When introducing a new domain concept:
 5. **Keep it current** — Update definitions when the domain model evolves. Remove terms that are no longer used.
 ````
 
-### 6. Generate `product/DDD/context-map.md`
+### 8. Generate `product/DDD/context-map.md`
 
 Create a starter context map. Replace the example diagram and placeholders as the project develops.
 
@@ -176,7 +193,7 @@ Describe how contexts communicate:
 - Event-driven / Direct calls
 ````
 
-### 7. Generate CLAUDE.md
+### 9. Generate CLAUDE.md
 
 Create `CLAUDE.md` in the project root. Fill in the placeholders from the conversation. All other sections are used as-is.
 
@@ -258,6 +275,29 @@ The `./do` script is the project's **single entry point** for all development ta
 
 The `./do` script is maintained by `/dev:plan` — every feature plan considers whether `./do` needs updates.
 
+## Runtime Environment
+
+The application runs behind a reverse proxy. Four port/host pairs are available via environment variables:
+
+| Variable | Purpose |
+|----------|---------|
+| `$PORT1` / `$HOST1` | {{PORT1_PURPOSE}} |
+| `$PORT2` / `$HOST2` | {{PORT2_PURPOSE}} |
+| `$PORT3` / `$HOST3` | {{PORT3_PURPOSE}} |
+| `$PORT4` / `$HOST4` | {{PORT4_PURPOSE}} |
+
+**Critical rules for all server-side and web code:**
+
+- **Port binding**: Server processes MUST bind to `$PORT1`–`$PORT4`, never hardcoded ports.
+- **No localhost**: The application is accessed via the public `$HOST1`–`$HOST4` URLs, never `localhost`. This affects:
+  - CORS origins — must allow the HOST URLs
+  - Cookie domains — must match the HOST domain
+  - CSP headers — must reference HOST URLs
+  - API base URLs — frontend must use the HOST URL of the API, not `localhost:PORT`
+  - WebSocket endpoints — must use `wss://` with the HOST URL
+  - OAuth/redirect URLs — must use HOST URLs for callbacks
+- **`./do run`** must start all services on the correct PORT variables and configure them with the HOST URLs.
+
 ## Planning and Implementation
 
 ### Creating Plans
@@ -302,7 +342,7 @@ Before making significant changes, ask:
 5. Does this maintain the simplicity principle?
 ````
 
-### 8. Create Starter `./do` Script
+### 10. Create Starter `./do` Script
 
 Create `./do` in the project root with this content. All command bodies are placeholders — `/dev:plan` will fill these in as part of the first feature plan.
 
@@ -402,7 +442,7 @@ case "${1:-}" in
 esac
 ````
 
-### 9. Initialize Git Repository
+### 11. Initialize Git Repository
 
 Initialize a git repository and create the initial commit:
 
@@ -410,7 +450,7 @@ Initialize a git repository and create the initial commit:
 2. Stage all created files with `git add`
 3. Create an initial commit with a message like: `Bootstrap project with dev-workflow methodology`
 
-### 10. Summary
+### 12. Summary
 
 Report what was created:
 
@@ -445,5 +485,5 @@ Start by describing your first feature and I'll help you plan it."
 3. **Be conversational.** Ask questions, understand the project, help the user think through their idea.
 4. **Don't over-scaffold.** Create the structure and starters, not the implementation. The project grows through `/dev:plan` and `/dev:implement`.
 5. **Empty directories get `.gitkeep`.** So they can be tracked in git.
-6. **File formats are embedded above.** Do not look for external template files — the exact content for each generated file is defined in steps 5–8.
+6. **File formats are embedded above.** Do not look for external template files — the exact content for each generated file is defined in steps 7–10.
 7. **Always create a git repo and initial commit.** The project should be version-controlled from the start.

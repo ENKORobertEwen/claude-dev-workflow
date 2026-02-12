@@ -76,7 +76,32 @@ The `./do` script is the project's single entry point for all development tasks.
 
 If `./do` changes are needed, include them as an explicit phase in the plan. The `./do` script must always remain self-contained: it auto-installs dependencies, checks for prerequisites, and "just works" when run from a fresh checkout.
 
-### 7. Define Acceptance Tests
+### 7. Consider Runtime Environment
+
+The application runs behind a reverse proxy. Four port/host pairs are available via environment variables:
+
+| Variable | Purpose |
+|----------|---------|
+| `$PORT1` / `$HOST1` | First available port and its public URL |
+| `$PORT2` / `$HOST2` | Second available port and its public URL |
+| `$PORT3` / `$HOST3` | Third available port and its public URL |
+| `$PORT4` / `$HOST4` | Fourth available port and its public URL |
+
+**Critical implications for any server-side or web feature:**
+
+- **Port binding**: Server processes MUST bind to `$PORT1`–`$PORT4`, never hardcoded ports. The plan must specify which package uses which port variable.
+- **No localhost**: The application is accessed via the public `$HOST1`–`$HOST4` URLs, never `localhost`. This affects:
+  - **CORS origins**: Must allow `$HOST1`–`$HOST4`, not `localhost`
+  - **Cookie domains**: Must be set for the HOST domain, not `localhost`
+  - **CSP headers**: Must reference the HOST URLs
+  - **API base URLs**: Frontend must use `$HOST2` (or whichever host the API is on), not `localhost:PORT`
+  - **WebSocket endpoints**: Must use the HOST URL with `wss://`
+  - **OAuth/redirect URLs**: Must use HOST URLs for callbacks
+- **`./do run`** must start all services on the correct PORT variables and configure them with the correct HOST URLs.
+
+If the plan involves any server, API, or web feature, include explicit port/host assignments and ensure all cross-origin configuration uses the HOST variables.
+
+### 8. Define Acceptance Tests
 
 This is a critical step. The plan follows **Acceptance Test Driven Development (ATDD)**:
 
@@ -95,7 +120,7 @@ The acceptance tests are structured into the plan as follows:
 
 The acceptance test passing is the definition of "phase complete."
 
-### 8. Determine Next Plan Number
+### 9. Determine Next Plan Number
 
 Scan both directories for the highest existing plan number:
 - `product/plans/todo/`
@@ -103,7 +128,7 @@ Scan both directories for the highest existing plan number:
 
 The new plan gets the next number (e.g., if highest is 004, new plan is 005).
 
-### 9. Write the Plan
+### 10. Write the Plan
 
 Create the plan file at `product/plans/todo/XXX-PLAN-FEATURE-NAME.md`.
 
@@ -271,7 +296,7 @@ How will this feature behave when updating from an older version?
 - **Backwards compatibility**: How old installations are affected
 ````
 
-### 10. Review Plan via Sub-Agents
+### 11. Review Plan via Sub-Agents
 
 Before presenting the plan to the user, run an automated review using four specialized sub-agents in parallel:
 
@@ -320,7 +345,7 @@ This is the most critical reviewer. Checks:
 4. Run one final holistic review sub-agent with fresh eyes on the updated plan. This reviewer checks the whole plan end-to-end, including that the fixes from step 3 didn't introduce new issues.
 5. Apply any final fixes.
 
-### 11. Final Review with User
+### 12. Final Review with User
 
 Present the complete, reviewed plan to the user. Include a summary of what the review process found and fixed:
 
@@ -335,7 +360,7 @@ Then use `AskUserQuestion` to present a selection with two options:
 
 Do NOT ask an open-ended question. Always use the selection box so the user can approve quickly.
 
-### 12. Commit and Push
+### 13. Commit and Push
 
 Once the user approves the plan:
 
@@ -361,7 +386,7 @@ The plan is now on main and ready for `/dev:implement` to pick up.
 
 7. **The plan is reviewed before the user sees it.** Four specialized sub-agent reviewers check feasibility, ATDD coverage, architecture, and decision completeness. Findings are fixed before presenting to the user.
 
-8. **Plans follow the format defined in step 9.** The plan format is embedded above — do not look for external template files.
+8. **Plans follow the format defined in step 10.** The plan format is embedded above — do not look for external template files.
 
 9. **Plans go in `product/plans/todo/`.** After implementation via `/dev:implement`, they are moved to `product/plans/done/`.
 

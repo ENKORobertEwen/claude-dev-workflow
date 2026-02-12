@@ -174,21 +174,34 @@ curl -s -X POST \
 
 **If `GITHUB_TOKEN` is not set:** Skip PR creation. Inform the user that the branch was pushed and they can create a PR manually. Mention that setting `GITHUB_TOKEN` enables automatic PR creation.
 
-### 6. Summary
+### 6. Start the Application
+
+After the PR is created (or the branch is pushed), start the application so it can be tested:
+
+```bash
+./do run
+```
+
+This runs in the background. The application will be accessible via the public HOST URLs (see Runtime Environment in CLAUDE.md).
+
+Include the accessible URLs in the summary so the user (or PR reviewers) can test immediately.
+
+### 7. Summary
 
 Provide a summary:
 - List of phases completed
 - List of commits created
 - Branch name
 - PR URL (if created)
-- Confirmation that the plan is fully implemented
+- Application URLs (from `$HOST1`–`$HOST4` environment variables, whichever are relevant)
+- Confirmation that the plan is fully implemented and the app is running
 
 ## Critical Rules
 
 ### The Orchestrator NEVER:
 
 - **Runs `./do check`** — Delegate to a verification sub-agent
-- **Runs any shell commands** — Except `git` commands for branch/commit operations, `curl` for PR creation, and `mv` for moving the plan file
+- **Runs any shell commands** — Except `git` commands for branch/commit operations, `curl` for PR creation, `./do run` to start the app, and `mv` for moving the plan file
 - **Implements code changes** — Delegate to implementation sub-agents
 - **Fixes errors** — Delegate to fix sub-agents
 - **Skips verification** — Every phase must pass `./do check` before committing
@@ -206,6 +219,7 @@ Provide a summary:
 - **Amends the last commit** to include the plan move to `done/`
 - **Pushes the branch** after all phases complete
 - **Creates a PR** via GitHub REST API if `GITHUB_TOKEN` is available
+- **Starts the application** with `./do run` after the PR so it's testable
 
 ### Sub-Agents NEVER:
 

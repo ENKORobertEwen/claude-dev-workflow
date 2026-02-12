@@ -15,6 +15,15 @@ This skill enforces that `./do check` MUST pass before any commits are made. The
 
 Before creating ANY commit, you MUST run `./do check` and it MUST pass completely. This is non-negotiable.
 
+Always capture output to a unique log file using `tee`:
+
+```bash
+LOG_FILE="/tmp/do-check-$(date +%s)-$$.log"
+./do check 2>&1 | tee "$LOG_FILE"
+```
+
+The log file is the source of truth. If verification fails, read the log file to diagnose errors — never re-run `./do check` just to see the output again.
+
 ### 2. Infrastructure Failures are a FULL STOP
 
 If `./do check` fails due to infrastructure issues (network, permissions, missing tools, SSH, DNS, environment configuration, etc.), this is a **FULL STOP**. You CANNOT:

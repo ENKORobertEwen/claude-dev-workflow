@@ -34,31 +34,33 @@ Rules:
 
 ### 2. Verification Sub-Agent
 
-Runs `./do check` and reports the result. Instructions to give the sub-agent:
+Runs `./do check` with output captured to a unique log file. Instructions to give the sub-agent:
 
 ```
-Run the project's full verification command:
+Run the project's full verification command, capturing all output to a unique log file:
 
-./do check
+LOG_FILE="/tmp/do-check-$(date +%s)-$$.log"
+./do check 2>&1 | tee "$LOG_FILE"
 
 Report back with one of:
-1. PASS — All checks passed (include summary output)
-2. CODE FAILURE — Lint errors, build errors, or test failures (include the complete error output)
-3. INFRASTRUCTURE FAILURE — Network issues, missing tools, permission errors, environment problems (include the complete error output)
+1. PASS — All checks passed. Include the log file path.
+2. CODE FAILURE — Lint errors, build errors, or test failures. Include the log file path.
+3. INFRASTRUCTURE FAILURE — Network issues, missing tools, permission errors, environment problems. Include the log file path.
+
+IMPORTANT: Always include the log file path in your response. Do NOT paste the full output — the log file is the source of truth.
 ```
 
 ### 3. Fix Sub-Agent
 
-Receives error output from a failed verification and fixes the issues. Instructions to give the sub-agent:
+Reads the verification log file and fixes the issues. Instructions to give the sub-agent:
 
 ```
 The code has verification errors. Your task is to fix ALL errors.
 
-Error output from ./do check:
-[paste the complete error output]
+The verification log is at: [log file path]
 
 Instructions:
-1. Read the error messages carefully
+1. Read the log file to understand what failed
 2. Identify which files have errors
 3. Read those files to understand the issues
 4. Fix ALL errors in the code

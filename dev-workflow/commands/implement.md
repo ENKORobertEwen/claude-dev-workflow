@@ -8,7 +8,7 @@ The user provides a plan to implement. Find it using this priority:
 
 1. **File path provided** — Use the specified file
 2. **Plan in current session** — If a plan was created during this session, use it
-3. **Scan `product/plans/todo/`** — If one plan exists, use it. If multiple exist, ask the user which one. If none exist, error: "No plans found in product/plans/todo/"
+3. **Scan `product/plans/todo/`** — If one plan exists, use it. If multiple exist, pick the one with the lowest plan number. If none exist, error: "No plans found in product/plans/todo/"
 
 ## Three Types of Sub-Agents
 
@@ -29,6 +29,7 @@ Context:
 Rules:
 - Do NOT run ./do check
 - Do NOT create any commits
+- NEVER ask questions or use AskUserQuestion — just implement what the phase says
 - Report back what you implemented when done
 ```
 
@@ -47,7 +48,9 @@ Report back with one of:
 2. CODE FAILURE — Lint errors, build errors, or test failures. Include the log file path.
 3. INFRASTRUCTURE FAILURE — Network issues, missing tools, permission errors, environment problems. Include the log file path.
 
-IMPORTANT: Always include the log file path in your response. Do NOT paste the full output — the log file is the source of truth.
+IMPORTANT:
+- Always include the log file path in your response. Do NOT paste the full output — the log file is the source of truth.
+- NEVER ask questions or use AskUserQuestion — just report the result.
 ```
 
 ### 3. Fix Sub-Agent
@@ -69,6 +72,7 @@ Instructions:
 Rules:
 - Do NOT run ./do check
 - Do NOT create any commits
+- NEVER ask questions or use AskUserQuestion — just fix and report
 ```
 
 ## Orchestration Process
@@ -108,8 +112,8 @@ For EACH phase in the plan:
 **c) Handle verification result**
 
 - **PASS** → Proceed to commit
-- **CODE FAILURE** → Launch fix sub-agent with the error output, then launch verification sub-agent again. Repeat until passing.
-- **INFRASTRUCTURE FAILURE** → STOP. Inform the user about the infrastructure issue. Wait for the user to resolve it before continuing.
+- **CODE FAILURE** → Launch fix sub-agent with the log file path, then launch verification sub-agent again. Repeat up to 3 verify-fix cycles. If still failing after 3 cycles, STOP and inform the user.
+- **INFRASTRUCTURE FAILURE** → STOP. Inform the user about the infrastructure issue and the log file path. Do NOT retry, do NOT ask questions.
 
 **d) Create commit**
 
@@ -223,6 +227,7 @@ Print the same summary to the CLI that was included in the PR body:
 
 ### The Orchestrator NEVER:
 
+- **Asks questions** — NEVER use `AskUserQuestion`. This is a fully headless process. All operational decisions have predefined behaviors (see below). No exceptions.
 - **Runs `./do check`** — Delegate to a verification sub-agent
 - **Runs any shell commands** — Except `git` commands for branch/commit operations, `curl` for PR creation, `./do run` to start the app, and `mv` for moving the plan file
 - **Implements code changes** — Delegate to implementation sub-agents
@@ -237,7 +242,7 @@ Print the same summary to the CLI that was included in the PR body:
 - **Delegates verification** to sub-agents
 - **Delegates error fixing** to sub-agents
 - **Creates commits** after verification passes
-- **Stops on infrastructure failures** and asks the user for help
+- **Stops on infrastructure failures** — Full stop, inform the user, do NOT ask or retry
 - **Creates small, focused commits** — One per phase, not batched
 - **Amends the last commit** to include the plan move to `done/`
 - **Pushes the branch** after all phases complete
@@ -247,7 +252,26 @@ Print the same summary to the CLI that was included in the PR body:
 
 ### Sub-Agents NEVER:
 
+- Ask questions or request clarification — NEVER use `AskUserQuestion`
 - Run `./do check` (except verification sub-agents)
 - Create commits
 - Move plan files
 - Push or create branches
+
+## Hardcoded Operational Decisions
+
+This command is fully headless. Every operational scenario has a predefined behavior. The orchestrator and all sub-agents follow these rules without exception — no asking, no prompting, no confirmation.
+
+| Scenario | Behavior |
+|----------|----------|
+| `GITHUB_TOKEN` not set | Push the branch. Skip PR creation. Inform user that setting `GITHUB_TOKEN` enables automatic PRs. |
+| `GITHUB_TOKEN` set but PR creation fails | Inform user of the error. The branch is already pushed — they can create a PR manually. |
+| `./do check` fails with code errors | Launch fix sub-agent. Retry verification. Repeat up to 3 cycles, then full stop. |
+| `./do check` fails with infrastructure errors (DNS, network, permissions, missing tools) | Full stop. Inform the user what happened. Do NOT retry. |
+| `./do run` fails | Inform user of the error. Continue to PR creation — the failure is noted in the summary. |
+| Multiple plans in `product/plans/todo/` | Pick the one with the lowest plan number. |
+| No plans in `product/plans/todo/` | Error: "No plans found in product/plans/todo/". Stop. |
+| Branch already exists | Resume: check git log for completed phases, skip them, continue from next. |
+| `git push` fails | Inform user. Do NOT retry. The commits are local — they can push manually. |
+| Fix sub-agent cannot resolve errors after 3 verify-fix cycles | Full stop. Inform user what failed and which phase. Do NOT keep retrying. |
+| Ambiguous or unclear plan instructions | Implement the most literal, straightforward interpretation. Do NOT ask for clarification. |

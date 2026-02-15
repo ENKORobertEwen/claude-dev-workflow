@@ -11,7 +11,7 @@
       "name": "dev",
       "source": "./dev-workflow",
       "description": "Structured development methodology with DDD documentation, architecture decision records, phased plans, and orchestrated implementation with mandatory verification",
-      "version": "2.5.2"
+      "version": "2.6.0"
     }
   ]
 }

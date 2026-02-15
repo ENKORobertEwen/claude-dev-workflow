@@ -112,8 +112,8 @@ For EACH phase in the plan:
 **c) Handle verification result**
 
 - **PASS** → Proceed to commit
-- **CODE FAILURE** → Launch fix sub-agent with the log file path, then launch verification sub-agent again. Repeat up to 3 verify-fix cycles. If still failing after 3 cycles, STOP and inform the user.
-- **INFRASTRUCTURE FAILURE** → STOP. Inform the user about the infrastructure issue and the log file path. Do NOT retry, do NOT ask questions.
+- **CODE FAILURE** → Launch fix sub-agent with the log file path, then launch verification sub-agent again. Repeat up to 3 verify-fix cycles. If still failing after 3 cycles, STOP, send a push notification (see Notifications below), and inform the user.
+- **INFRASTRUCTURE FAILURE** → STOP. Send a push notification (see Notifications below). Inform the user about the infrastructure issue and the log file path. Do NOT retry, do NOT ask questions.
 
 **d) Create commit**
 
@@ -211,7 +211,17 @@ curl -s -X POST \
 
 **If `GITHUB_TOKEN` is not set:** Skip PR creation. Inform the user that the branch was pushed and they can create a PR manually. Mention that setting `GITHUB_TOKEN` enables automatic PR creation.
 
-### 7. Summary
+### 7. Send Completion Notification
+
+Send a push notification that everything is done:
+
+```bash
+curl -s -H "Title: Implementation Complete" -H "Tags: white_check_mark" \
+  -d "Plan [plan-name] fully implemented. Branch: [branch]. PR: [PR-url-or-'no PR']" \
+  ntfy.sh/${NTFY_TOPIC:-robertscodeagents101}
+```
+
+### 8. Summary
 
 Print the same summary to the CLI that was included in the PR body:
 - List of phases completed
@@ -222,6 +232,22 @@ Print the same summary to the CLI that was included in the PR body:
 - Confirmation that the plan is fully implemented and the app is running
 
 **The CLI summary and the PR body must contain the same information.** The PR is the permanent record — anyone looking at the PR should see exactly what the implementer saw.
+
+## Notifications
+
+Send push notifications via ntfy.sh at terminal states so the user knows to come back. Use the `dev:notify-user` skill for full details. The orchestrator sends notifications directly (not via sub-agents).
+
+**When to notify:**
+
+| Event | Command |
+|-------|---------|
+| All phases complete, PR created | `curl -s -H "Title: Implementation Complete" -H "Tags: white_check_mark" -d "Plan [plan-name] fully implemented. Branch: [branch]. PR: [url]" ntfy.sh/${NTFY_TOPIC:-robertscodeagents101}` |
+| Fix cycles exhausted (3 cycles, still failing) | `curl -s -H "Title: Claude Code - Blocked" -H "Priority: high" -H "Tags: x" -d "Phase [N] of [plan-name] failed after 3 fix cycles. Need your help. Check terminal." ntfy.sh/${NTFY_TOPIC:-robertscodeagents101}` |
+| Infrastructure failure | `curl -s -H "Title: Claude Code - Infra Error" -H "Priority: high" -H "Tags: rotating_light" -d "Infrastructure failure during [plan-name] phase [N]: [brief description]. Execution stopped." ntfy.sh/${NTFY_TOPIC:-robertscodeagents101}` |
+| `./do run` fails | `curl -s -H "Title: Claude Code - App Start Failed" -H "Priority: default" -H "Tags: warning" -d "[plan-name]: ./do run failed. PR created but app not running. Check terminal." ntfy.sh/${NTFY_TOPIC:-robertscodeagents101}` |
+| `git push` fails | `curl -s -H "Title: Claude Code - Push Failed" -H "Priority: default" -H "Tags: warning" -d "[plan-name]: git push failed. Commits are local. Check terminal." ntfy.sh/${NTFY_TOPIC:-robertscodeagents101}` |
+
+**Do NOT notify for:** individual phase completions, successful intermediate verification, or routine progress.
 
 ## Critical Rules
 
@@ -242,7 +268,8 @@ Print the same summary to the CLI that was included in the PR body:
 - **Delegates verification** to sub-agents
 - **Delegates error fixing** to sub-agents
 - **Creates commits** after verification passes
-- **Stops on infrastructure failures** — Full stop, inform the user, do NOT ask or retry
+- **Sends push notifications** at terminal states (complete, blocked, infrastructure failure) via ntfy.sh
+- **Stops on infrastructure failures** — Full stop, send notification, inform the user, do NOT ask or retry
 - **Creates small, focused commits** — One per phase, not batched
 - **Amends the last commit** to include the plan move to `done/`
 - **Pushes the branch** after all phases complete
@@ -266,12 +293,12 @@ This command is fully headless. Every operational scenario has a predefined beha
 |----------|----------|
 | `GITHUB_TOKEN` not set | Push the branch. Skip PR creation. Inform user that setting `GITHUB_TOKEN` enables automatic PRs. |
 | `GITHUB_TOKEN` set but PR creation fails | Inform user of the error. The branch is already pushed — they can create a PR manually. |
-| `./do check` fails with code errors | Launch fix sub-agent. Retry verification. Repeat up to 3 cycles, then full stop. |
-| `./do check` fails with infrastructure errors (DNS, network, permissions, missing tools) | Full stop. Inform the user what happened. Do NOT retry. |
-| `./do run` fails | Inform user of the error. Continue to PR creation — the failure is noted in the summary. |
+| `./do check` fails with code errors | Launch fix sub-agent. Retry verification. Repeat up to 3 cycles, then full stop. **Send push notification.** |
+| `./do check` fails with infrastructure errors (DNS, network, permissions, missing tools) | Full stop. Inform the user what happened. Do NOT retry. **Send push notification.** |
+| `./do run` fails | Inform user of the error. Continue to PR creation — the failure is noted in the summary. **Send push notification.** |
 | Multiple plans in `product/plans/todo/` | Pick the one with the lowest plan number. |
 | No plans in `product/plans/todo/` | Error: "No plans found in product/plans/todo/". Stop. |
 | Branch already exists | Resume: check git log for completed phases, skip them, continue from next. |
-| `git push` fails | Inform user. Do NOT retry. The commits are local — they can push manually. |
-| Fix sub-agent cannot resolve errors after 3 verify-fix cycles | Full stop. Inform user what failed and which phase. Do NOT keep retrying. |
+| `git push` fails | Inform user. Do NOT retry. The commits are local — they can push manually. **Send push notification.** |
+| Fix sub-agent cannot resolve errors after 3 verify-fix cycles | Full stop. Inform user what failed and which phase. Do NOT keep retrying. **Send push notification.** |
 | Ambiguous or unclear plan instructions | Implement the most literal, straightforward interpretation. Do NOT ask for clarification. |

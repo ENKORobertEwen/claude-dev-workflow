@@ -346,7 +346,17 @@ This is the most critical reviewer. Checks:
 4. Run one final holistic review sub-agent with fresh eyes on the updated plan. This reviewer checks the whole plan end-to-end, including that the fixes from step 3 didn't introduce new issues.
 5. Apply any final fixes.
 
-### 12. Final Review with User
+### 12. Notify User That Plan Is Ready
+
+The sub-agent review can take a while. Send a push notification so the user knows the plan is ready for their review:
+
+```bash
+curl -s -H "Title: Plan Ready for Review" -H "Tags: memo" \
+  -d "Plan [plan-name] is ready for your review. Check terminal." \
+  ntfy.sh/${NTFY_TOPIC:-robertscodeagents101}
+```
+
+### 13. Final Review with User
 
 Present the complete, reviewed plan to the user. Include a summary of what the review process found and fixed:
 
@@ -356,12 +366,12 @@ Present the complete, reviewed plan to the user. Include a summary of what the r
 - Note any `./do` script changes
 
 Then use `AskUserQuestion` to present a selection with two options:
-- **"Commit and push (Recommended)"** — The plan is approved. Proceed to step 12.
+- **"Commit and push (Recommended)"** — The plan is approved. Proceed to step 14.
 - **"I have changes"** — The user wants to iterate. Listen to their feedback, update the plan, and present the selection again.
 
 Do NOT ask an open-ended question. Always use the selection box so the user can approve quickly.
 
-### 13. Commit and Push
+### 14. Commit and Push
 
 Once the user approves the plan:
 

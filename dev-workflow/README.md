@@ -64,6 +64,16 @@ The orchestrator never implements, fixes, or verifies directly — it only deleg
 
 ## Skills
 
+### `notify-user`
+
+Sends push notifications via [ntfy.sh](https://ntfy.sh) at terminal states:
+- Implementation complete (all phases done, PR created)
+- Verification blocked (fix cycles exhausted)
+- Infrastructure failure (execution stopped)
+- Plan ready for review (after sub-agent review completes)
+
+Does NOT notify for routine progress or individual phase completions. Configure the topic via `NTFY_TOPIC` env var (default: `robertscodeagents101`).
+
 ### `verification-required`
 
 Enforces `./do check` before any commit:

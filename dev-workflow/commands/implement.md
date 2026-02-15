@@ -216,9 +216,9 @@ curl -s -X POST \
 Send a push notification that everything is done:
 
 ```bash
-curl -s -H "Title: Implementation Complete" -H "Tags: white_check_mark" \
-  -d "Plan [plan-name] fully implemented. Branch: [branch]. PR: [PR-url-or-'no PR']" \
-  ntfy.sh/${NTFY_TOPIC:-robertscodeagents101}
+curl -s -G "https://api.day.app/${BARK_KEY:-ykExqiREfYAbHToaf9cK5X}/" \
+  --data-urlencode "title=Implementation Complete" \
+  --data-urlencode "body=Plan [plan-name] fully implemented. Branch: [branch]. PR: [PR-url-or-'no PR']"
 ```
 
 ### 8. Summary
@@ -235,17 +235,17 @@ Print the same summary to the CLI that was included in the PR body:
 
 ## Notifications
 
-Send push notifications via ntfy.sh at terminal states so the user knows to come back. Use the `dev:notify-user` skill for full details. The orchestrator sends notifications directly (not via sub-agents).
+Send push notifications via Bark at terminal states so the user knows to come back. Use the `dev:notify-user` skill for full details. The orchestrator sends notifications directly (not via sub-agents).
 
 **When to notify:**
 
 | Event | Command |
 |-------|---------|
-| All phases complete, PR created | `curl -s -H "Title: Implementation Complete" -H "Tags: white_check_mark" -d "Plan [plan-name] fully implemented. Branch: [branch]. PR: [url]" ntfy.sh/${NTFY_TOPIC:-robertscodeagents101}` |
-| Fix cycles exhausted (3 cycles, still failing) | `curl -s -H "Title: Claude Code - Blocked" -H "Priority: high" -H "Tags: x" -d "Phase [N] of [plan-name] failed after 3 fix cycles. Need your help. Check terminal." ntfy.sh/${NTFY_TOPIC:-robertscodeagents101}` |
-| Infrastructure failure | `curl -s -H "Title: Claude Code - Infra Error" -H "Priority: high" -H "Tags: rotating_light" -d "Infrastructure failure during [plan-name] phase [N]: [brief description]. Execution stopped." ntfy.sh/${NTFY_TOPIC:-robertscodeagents101}` |
-| `./do run` fails | `curl -s -H "Title: Claude Code - App Start Failed" -H "Priority: default" -H "Tags: warning" -d "[plan-name]: ./do run failed. PR created but app not running. Check terminal." ntfy.sh/${NTFY_TOPIC:-robertscodeagents101}` |
-| `git push` fails | `curl -s -H "Title: Claude Code - Push Failed" -H "Priority: default" -H "Tags: warning" -d "[plan-name]: git push failed. Commits are local. Check terminal." ntfy.sh/${NTFY_TOPIC:-robertscodeagents101}` |
+| All phases complete, PR created | `curl -s -G "https://api.day.app/${BARK_KEY:-ykExqiREfYAbHToaf9cK5X}/" --data-urlencode "title=Implementation Complete" --data-urlencode "body=Plan [plan-name] fully implemented. Branch: [branch]. PR: [url]"` |
+| Fix cycles exhausted (3 cycles, still failing) | `curl -s -G "https://api.day.app/${BARK_KEY:-ykExqiREfYAbHToaf9cK5X}/" --data-urlencode "title=Claude Code - Blocked" --data-urlencode "body=Phase [N] of [plan-name] failed after 3 fix cycles. Need your help. Check terminal."` |
+| Infrastructure failure | `curl -s -G "https://api.day.app/${BARK_KEY:-ykExqiREfYAbHToaf9cK5X}/" --data-urlencode "title=Claude Code - Infra Error" --data-urlencode "body=Infrastructure failure during [plan-name] phase [N]: [brief description]. Execution stopped."` |
+| `./do run` fails | `curl -s -G "https://api.day.app/${BARK_KEY:-ykExqiREfYAbHToaf9cK5X}/" --data-urlencode "title=Claude Code - App Start Failed" --data-urlencode "body=[plan-name]: ./do run failed. PR created but app not running. Check terminal."` |
+| `git push` fails | `curl -s -G "https://api.day.app/${BARK_KEY:-ykExqiREfYAbHToaf9cK5X}/" --data-urlencode "title=Claude Code - Push Failed" --data-urlencode "body=[plan-name]: git push failed. Commits are local. Check terminal."` |
 
 **Do NOT notify for:** individual phase completions, successful intermediate verification, or routine progress.
 
@@ -268,7 +268,7 @@ Send push notifications via ntfy.sh at terminal states so the user knows to come
 - **Delegates verification** to sub-agents
 - **Delegates error fixing** to sub-agents
 - **Creates commits** after verification passes
-- **Sends push notifications** at terminal states (complete, blocked, infrastructure failure) via ntfy.sh
+- **Sends push notifications** at terminal states (complete, blocked, infrastructure failure) via Bark
 - **Stops on infrastructure failures** — Full stop, send notification, inform the user, do NOT ask or retry
 - **Creates small, focused commits** — One per phase, not batched
 - **Amends the last commit** to include the plan move to `done/`

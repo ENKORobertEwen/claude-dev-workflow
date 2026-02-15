@@ -66,13 +66,13 @@ The orchestrator never implements, fixes, or verifies directly — it only deleg
 
 ### `notify-user`
 
-Sends push notifications via [ntfy.sh](https://ntfy.sh) at terminal states:
+Sends push notifications via [Bark](https://github.com/Finb/Bark) at terminal states:
 - Implementation complete (all phases done, PR created)
 - Verification blocked (fix cycles exhausted)
 - Infrastructure failure (execution stopped)
 - Plan ready for review (after sub-agent review completes)
 
-Does NOT notify for routine progress or individual phase completions. Configure the topic via `NTFY_TOPIC` env var (default: `robertscodeagents101`).
+Does NOT notify for routine progress or individual phase completions. Configure the key via `BARK_KEY` env var (default: `ykExqiREfYAbHToaf9cK5X`).
 
 ### `verification-required`
 

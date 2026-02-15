@@ -351,9 +351,9 @@ This is the most critical reviewer. Checks:
 The sub-agent review can take a while. Send a push notification so the user knows the plan is ready for their review:
 
 ```bash
-curl -s -H "Title: Plan Ready for Review" -H "Tags: memo" \
-  -d "Plan [plan-name] is ready for your review. Check terminal." \
-  ntfy.sh/${NTFY_TOPIC:-robertscodeagents101}
+curl -s -G "https://api.day.app/${BARK_KEY:-ykExqiREfYAbHToaf9cK5X}/" \
+  --data-urlencode "title=Plan Ready for Review" \
+  --data-urlencode "body=Plan [plan-name] is ready for your review. Check terminal."
 ```
 
 ### 13. Final Review with User

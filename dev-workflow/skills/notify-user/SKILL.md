@@ -3,11 +3,11 @@ name: notify-user
 description: Use when a long-running process completes, fails, or needs user attention — especially during plan execution, background builds, or multi-phase implementations where the user may be away from their terminal
 ---
 
-# Notify User via ntfy.sh
+# Notify User via Bark
 
 ## Overview
 
-Send push notifications to the user's phone/desktop when important events occur. Uses [ntfy.sh](https://ntfy.sh) — a simple HTTP-based pub/sub notification service.
+Send push notifications to the user's iPhone when important events occur. Uses [Bark](https://github.com/Finb/Bark) — a simple URL-based iOS push notification service.
 
 ## When to Use
 
@@ -21,60 +21,50 @@ Send push notifications to the user's phone/desktop when important events occur.
 
 ## Configuration
 
-**Topic:** `robertscodeagents101`
+**Bark Key:** `ykExqiREfYAbHToaf9cK5X`
 
-To change the topic, set the environment variable `NTFY_TOPIC`. Falls back to the hardcoded default above.
+To change the key, set the environment variable `BARK_KEY`. Falls back to the hardcoded default above.
 
 ## How to Send
 
 ```bash
 # Basic notification
-curl -s -d "Your message here" ntfy.sh/${NTFY_TOPIC:-robertscodeagents101}
+curl -s "https://api.day.app/${BARK_KEY:-ykExqiREfYAbHToaf9cK5X}/Claude%20Code/Your%20message%20here"
 
-# With title and priority
-curl -s \
-  -H "Title: Claude Code" \
-  -H "Priority: default" \
-  -d "Your message here" \
-  ntfy.sh/${NTFY_TOPIC:-robertscodeagents101}
-
-# High priority (for errors/failures)
-curl -s \
-  -H "Title: Claude Code - Action Required" \
-  -H "Priority: high" \
-  -H "Tags: warning" \
-  -d "Your message here" \
-  ntfy.sh/${NTFY_TOPIC:-robertscodeagents101}
+# With URL encoding for spaces and special chars — use --data-urlencode:
+curl -s -G "https://api.day.app/${BARK_KEY:-ykExqiREfYAbHToaf9cK5X}/" \
+  --data-urlencode "title=Claude Code" \
+  --data-urlencode "body=Your message here"
 ```
 
 ## Message Templates
 
 **Implementation complete:**
 ```bash
-curl -s -H "Title: Implementation Complete" -H "Tags: white_check_mark" \
-  -d "Plan [plan-name] fully implemented. Branch: [branch]. PR: [url]" \
-  ntfy.sh/${NTFY_TOPIC:-robertscodeagents101}
+curl -s -G "https://api.day.app/${BARK_KEY:-ykExqiREfYAbHToaf9cK5X}/" \
+  --data-urlencode "title=Implementation Complete" \
+  --data-urlencode "body=Plan [plan-name] fully implemented. Branch: [branch]. PR: [url]"
 ```
 
 **Verification failure (blocked):**
 ```bash
-curl -s -H "Title: Claude Code - Blocked" -H "Priority: high" -H "Tags: x" \
-  -d "Phase [N] failed after 3 fix cycles. Need your help. Check terminal." \
-  ntfy.sh/${NTFY_TOPIC:-robertscodeagents101}
+curl -s -G "https://api.day.app/${BARK_KEY:-ykExqiREfYAbHToaf9cK5X}/" \
+  --data-urlencode "title=Claude Code - Blocked" \
+  --data-urlencode "body=Phase [N] failed after 3 fix cycles. Need your help. Check terminal."
 ```
 
 **Infrastructure failure:**
 ```bash
-curl -s -H "Title: Claude Code - Infra Error" -H "Priority: high" -H "Tags: rotating_light" \
-  -d "Infrastructure failure: [brief description]. Execution stopped." \
-  ntfy.sh/${NTFY_TOPIC:-robertscodeagents101}
+curl -s -G "https://api.day.app/${BARK_KEY:-ykExqiREfYAbHToaf9cK5X}/" \
+  --data-urlencode "title=Claude Code - Infra Error" \
+  --data-urlencode "body=Infrastructure failure: [brief description]. Execution stopped."
 ```
 
 **Needs user input:**
 ```bash
-curl -s -H "Title: Claude Code - Input Needed" -H "Priority: default" -H "Tags: question" \
-  -d "Waiting for your input: [brief context]" \
-  ntfy.sh/${NTFY_TOPIC:-robertscodeagents101}
+curl -s -G "https://api.day.app/${BARK_KEY:-ykExqiREfYAbHToaf9cK5X}/" \
+  --data-urlencode "title=Claude Code - Input Needed" \
+  --data-urlencode "body=Waiting for your input: [brief context]"
 ```
 
 ## Integration Points
@@ -87,16 +77,17 @@ When using this skill alongside other skills:
 
 ## Quick Reference
 
-| Event | Priority | Tags |
-|-------|----------|------|
-| Implementation complete | default | white_check_mark |
-| Verification blocked | high | x |
-| Infrastructure failure | high | rotating_light |
-| Needs user input | default | question |
+| Event | Title |
+|-------|-------|
+| Implementation complete | Implementation Complete |
+| Verification blocked | Claude Code - Blocked |
+| Infrastructure failure | Claude Code - Infra Error |
+| Needs user input | Claude Code - Input Needed |
 
 ## Common Mistakes
 
 - **Over-notifying:** Don't send per-phase notifications. Only terminal states.
-- **Missing env fallback:** Always use `${NTFY_TOPIC:-robertscodeagents101}` with the fallback.
+- **Missing env fallback:** Always use `${BARK_KEY:-ykExqiREfYAbHToaf9cK5X}` with the fallback.
 - **Forgetting `-s` flag:** Use `curl -s` to suppress progress output that clutters logs.
+- **Broken URL encoding:** Use `--data-urlencode` instead of manual `%20` encoding for messages with spaces/special chars.
 - **Vague messages:** Include what happened, which plan/phase, and what the user should do.

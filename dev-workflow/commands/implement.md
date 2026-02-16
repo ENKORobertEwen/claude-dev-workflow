@@ -155,15 +155,21 @@ After all phases are complete:
 
 ### 5. Start the Application
 
-Start the application so it can be tested:
+Start the application and capture its output to determine the live URLs:
 
 ```bash
-./do run
+./do run 2>&1 | tee /tmp/do-run-output.log &
+sleep 5
 ```
 
-This runs in the background. The application will be accessible via the public HOST URLs (see Runtime Environment in CLAUDE.md).
+**Determine live URLs** using this priority:
 
-Determine which `$HOST1`–`$HOST4` URLs are relevant for this project by reading CLAUDE.md's Runtime Environment section.
+1. **`$HOST1`–`$HOST4` environment variables** — If set, use these (they are public URLs). Check CLAUDE.md's Runtime Environment section for which ones are relevant.
+2. **Parse `./do run` output** — If HOST variables are not set, read `/tmp/do-run-output.log` and extract any URLs the server printed (look for patterns like `http://localhost:XXXX`, `https://...`, `listening on ...`, `ready at ...`).
+3. **Construct from PORT variables** — If neither HOST vars nor output URLs are available, check `$PORT1`–`$PORT4` and construct `http://localhost:$PORT1` etc.
+4. **Read `./do` script** — As a last resort, read the `./do` script's `run` command to find which port(s) it uses and construct localhost URLs from that.
+
+**This step must produce at least one URL.** If none of the above yields a URL, note "URL could not be determined — check `./do run` manually" but still include the Live URLs section in the PR.
 
 ### 6. Create Pull Request (GitHub only)
 
@@ -181,8 +187,8 @@ Check if `GITHUB_TOKEN` is set in the environment. If so, create a pull request 
 ## Live URLs
 
 The application is running and can be tested at:
-- **Frontend:** $HOST1 (or whichever is relevant)
-- **API:** $HOST2 (or whichever is relevant)
+- **Frontend:** [URL determined in step 5]
+- **API:** [URL determined in step 5, if separate]
 
 ## Acceptance Criteria
 
@@ -193,6 +199,8 @@ The application is running and can be tested at:
 - [x] Phase 1: ...
 - [x] Phase 2: ...
 ```
+
+**The "Live URLs" section is mandatory.** Always include it using the URLs determined in step 5. Never omit this section — even if no URL could be determined, include the section with a note that the URL needs to be checked manually.
 
 **Create the PR:**
 
@@ -228,7 +236,7 @@ Print the same summary to the CLI that was included in the PR body:
 - List of commits created
 - Branch name
 - PR URL (if created)
-- Application URLs (from `$HOST1`–`$HOST4` environment variables, whichever are relevant)
+- Application URLs (as determined in step 5 — from HOST variables, `./do run` output, PORT variables, or `./do` script)
 - Confirmation that the plan is fully implemented and the app is running
 
 **The CLI summary and the PR body must contain the same information.** The PR is the permanent record — anyone looking at the PR should see exactly what the implementer saw.
@@ -274,7 +282,7 @@ Send push notifications via Bark at terminal states so the user knows to come ba
 - **Amends the last commit** to include the plan move to `done/`
 - **Pushes the branch** after all phases complete
 - **Starts the application** with `./do run` before creating the PR
-- **Creates a PR** via GitHub REST API if `GITHUB_TOKEN` is available, with live URLs in the body
+- **Creates a PR** via GitHub REST API if `GITHUB_TOKEN` is available, with live URLs in the body (mandatory section — never omitted)
 - **Keeps CLI summary and PR body in sync** — same information in both
 
 ### Sub-Agents NEVER:

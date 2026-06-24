@@ -1,6 +1,7 @@
 # Figma Refresh Plan Command — Design
 
-**Status:** Design complete pending final user review, then writing-plans.
+**Status:** Implemented in plugin v2.9.0 (commands/figma-refresh-plan.md, plus
+plan.md/implement.md reconciliation). Full scope.
 **Date:** 2026-06-24
 
 > **Form:** This is a **command** (`/dev:figma-refresh-plan`,

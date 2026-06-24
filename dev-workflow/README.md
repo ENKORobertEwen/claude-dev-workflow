@@ -45,7 +45,7 @@ Create a feature plan. Process:
 2. Explores the codebase (CLAUDE.md, DDD docs, ADRs, source files)
 3. Presents technical decisions to the user for approval
 4. Identifies DDD and ADR implications
-5. For frontend features, decides the design direction with the user and captures a UI/UX Spec (design system, screens, states, responsive, accessibility)
+5. For frontend features, decides the design direction with the user and captures a UI/UX Spec (design system, screens, states, responsive, accessibility); for Figma-sourced designs, resolves the Figma mapping (logical pieces ↔ nodes per breakpoint, plus an ignore list) that `/figma-refresh-plan` consumes
 6. Writes a phased plan to `product/plans/todo/`
 7. Reviews the plan with the user until approved
 
@@ -65,6 +65,18 @@ Execute a plan with sub-agent orchestration. The orchestrator:
 The orchestrator never implements, fixes, verifies, or reviews UI directly — it only delegates and commits.
 
 Frontend phases are built in **frontend mode**: the implementation sub-agent invokes the `frontend-design` skill, implements every UI state from the spec, and applies design judgment to unspecified visual details. This requires the `frontend-design` skill and the Playwright MCP server to be available.
+
+### `/figma-refresh-plan`
+
+Keep a Figma-sourced design and the code in sync. The command:
+1. Pulls the current design via the Figma MCP (Code Connect for component identity, design context, variables)
+2. Maintains a per-piece **status ledger** (`product/design/<plan-slug>/status.json`) tracking which pieces — tokens, primitives, components, layouts, views per breakpoint — are implemented against the current design and which have drifted
+3. Writes design files (`tokens.json` in W3C DTCG format, `context.md`, `source.md`)
+4. Commits a dedicated design snapshot (git history is the diff substrate)
+
+It is **adaptive**: the first/greenfield pull just sets the baseline and points you to `/plan` (there is no UI to plan rework against yet). Once an implemented baseline exists, a later run diffs via the ledger and writes a **rework plan** to `product/plans/todo/` for the changed (and dependent) pieces, which `/implement` then executes — writing the ledger back to `implemented`.
+
+The Figma mapping (which nodes are which logical pieces, per breakpoint, plus an ignore list) is resolved once with the user during `/plan`. This command consumes it; it does not pull inside `/implement`. Requires the Figma MCP and a Figma plan with Code Connect (Org/Enterprise + Dev seat) for reliable component identity.
 
 ## Skills
 

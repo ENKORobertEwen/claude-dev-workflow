@@ -108,7 +108,12 @@ If the feature has a user-facing frontend, design quality is a first-class conce
 
 **The user does NOT need to bring a design** — but they may, and the plan supports either path equally. Ask which source the design comes from:
 
-- **A) User-supplied via Figma** — The user provides a Figma file/URL. Use the Figma MCP to pull design context (`get_design_context`, `get_screenshot`, `get_variable_defs`, and Code Connect maps if present). Record the Figma URL and the extracted tokens/specs in the UI/UX Spec so the implementer reproduces it faithfully. Best for high-fidelity / brand-critical UI and multi-screen consistency.
+- **A) User-supplied via Figma** — The user provides a Figma file/URL. Your job here is to resolve the **mapping**, not to pull pixels. Figma's node tree carries no semantics (which frames are the same screen at different breakpoints, which are flow/annotation frames, which layers are primitives), so resolve it once, with the user:
+  1. Use the Figma MCP to inspect structure: `get_code_connect_map` (authoritative Figma→code identity for mapped components), `get_metadata` (pages/frames with names + sizes — size hints the breakpoint), `get_variable_defs` (tokens), and `get_screenshot` to understand visually.
+  2. **Propose** a mapping table — logical screens × breakpoint (desktop/tablet/mobile), primitives/components (from Code Connect where mapped), and an explicit **ignore list** for flow/annotation frames — marking anything uncertain (e.g. "these buttons aren't Figma components — treat as primitives?").
+  3. The user confirms/corrects. Record the confirmed mapping + the Figma URL in the UI/UX Spec.
+
+  Do **not** pull the design or enumerate per-pixel frontend phases here. Pulling the design, the per-piece status ledger, and the (re)work plan are produced by `/dev:figma-refresh-plan`, which consumes this mapping. Best for high-fidelity / brand-critical UI and multi-screen consistency.
 - **B) User-supplied, other references** — Screenshots, an existing app look, or a description the user gives. Capture these in the UI/UX Spec references.
 - **C) Claude-generated** — The user has no design. You *propose* a direction using the `frontend-design` skill, exactly like the architecture decisions in step 3, and the user approves or adjusts. Best for greenfield/speed; the visual-review loop in `/dev:implement` then refines it.
 
@@ -196,6 +201,19 @@ Describe what this feature does and why it's needed. What problem does it solve?
 ### References
 
 {{Figma URLs, screenshots, or existing screens to match. "None" if not applicable.}}
+
+<!-- Include this subsection ONLY for Figma-sourced designs. It is the mapping that /dev:figma-refresh-plan consumes. -->
+
+### Figma Mapping
+
+Confirmed with the user. Logical pieces, their Figma node IDs per breakpoint, and code identity (from Code Connect where mapped).
+
+| Logical piece | Level | Desktop node | Tablet node | Mobile node | Code target |
+|---------------|-------|--------------|-------------|-------------|-------------|
+| {{e.g. Login}} | view | `{{node}}` | `{{node}}` | `{{node}}` | `{{Code Connect / path}}` |
+| {{e.g. Button}} | primitive | `{{node}}` | — | — | `{{Code Connect / path}}` |
+
+**Ignore (do not build):** {{flow/annotation frames to exclude, by name or node ID}}
 
 ### Design System & Tokens
 

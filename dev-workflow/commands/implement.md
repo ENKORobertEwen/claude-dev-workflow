@@ -49,7 +49,7 @@ Rules:
 This is a FRONTEND phase. UI quality matters as much as correctness.
 
 - Invoke the `frontend-design` skill (if available) before writing UI code, and follow its guidance on visual hierarchy, typography, spacing, and avoiding templated defaults.
-- If the UI/UX Spec references a Figma file/URL, use the Figma MCP (`get_design_context`, `get_screenshot`, `get_variable_defs`, Code Connect maps) to pull the exact design and reproduce it faithfully — the Figma file is the source of truth over your own judgment.
+- For Figma-sourced designs, do NOT pull from Figma yourself. Read the design files that `/dev:figma-refresh-plan` already produced under `product/design/<plan-slug>/` (`context.md`, `tokens.json`) and the piece's `figmaNodeIds` / `codeTarget` from `status.json`. The Figma design is the source of truth over your own judgment; reproduce it faithfully. If the design appears to violate a design principle, report it — do not change it unilaterally.
 - Read the plan's "UI/UX Spec" section and implement EVERY state it lists for the screens in this phase: loading, empty, error, success, and disabled — not just the happy path.
 - Honor the design direction, design tokens, and component/library choices fixed in the plan. Do NOT introduce a different design language.
 - Where the plan leaves a purely visual detail unspecified (exact spacing, micro-copy, hover/focus styling, transitions), you ARE allowed and expected to apply sound design judgment — this is the one exception to "implement the most literal interpretation." Do NOT invent new functional requirements or scope.
@@ -180,6 +180,16 @@ After `./do check` passes, and only for frontend phases:
 - **UI ISSUES** → Launch a fix sub-agent with the issue list (in frontend mode), then re-run the verification sub-agent (`./do check` must stay green), then launch the UI review sub-agent again. Repeat up to 3 review-fix cycles. If issues remain after 3 cycles, do NOT block: proceed to commit, and record the remaining UI issues so they surface in the final summary and PR body.
 
 This keeps any visual fixes folded into the same phase commit. The app may stay running between frontend phases — the UI review sub-agent reuses it rather than restarting each time.
+
+**c3) Ledger write-back (Figma-sourced frontend phases only)**
+
+If the phase implemented Figma-sourced pieces tracked in
+`product/design/<plan-slug>/status.json`, update each implemented piece before
+committing: set its `lastImplementedHash` to its `currentHash` and its `status`
+to `implemented`. A `to-review` piece that turned out to need no change is also
+set back to `implemented` (hash updated to current). This is what makes the next
+`/dev:figma-refresh-plan` diff meaningful. Stage `status.json` with the phase
+commit.
 
 **d) Create commit**
 

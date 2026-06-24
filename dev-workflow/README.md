@@ -45,8 +45,9 @@ Create a feature plan. Process:
 2. Explores the codebase (CLAUDE.md, DDD docs, ADRs, source files)
 3. Presents technical decisions to the user for approval
 4. Identifies DDD and ADR implications
-5. Writes a phased plan to `product/plans/todo/`
-6. Reviews the plan with the user until approved
+5. For frontend features, decides the design direction with the user and captures a UI/UX Spec (design system, screens, states, responsive, accessibility)
+6. Writes a phased plan to `product/plans/todo/`
+7. Reviews the plan with the user until approved
 
 The plan document is the only output. No code changes, no DDD edits, no ADR creation.
 
@@ -57,10 +58,13 @@ Execute a plan with sub-agent orchestration. The orchestrator:
 2. For each phase: launches an implementation sub-agent, then a verification sub-agent
 3. If verification fails with code errors: launches a fix sub-agent, re-verifies, repeats
 4. If verification fails with infrastructure errors: stops and asks the user
-5. Creates a focused commit per phase
-6. Moves the completed plan to `product/plans/done/`
+5. For frontend phases: after `./do check` passes, runs a visual review loop — a UI review sub-agent renders the app with Playwright and critiques it against the plan's UI/UX Spec, then a fix sub-agent resolves issues, until the UI passes (or after 3 cycles, records remaining issues)
+6. Creates a focused commit per phase
+7. Moves the completed plan to `product/plans/done/`
 
-The orchestrator never implements, fixes, or verifies directly — it only delegates and commits.
+The orchestrator never implements, fixes, verifies, or reviews UI directly — it only delegates and commits.
+
+Frontend phases are built in **frontend mode**: the implementation sub-agent invokes the `frontend-design` skill, implements every UI state from the spec, and applies design judgment to unspecified visual details. This requires the `frontend-design` skill and the Playwright MCP server to be available.
 
 ## Skills
 

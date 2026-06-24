@@ -10,7 +10,17 @@ The user provides a plan to implement. Find it using this priority:
 2. **Plan in current session** — If a plan was created during this session, use it
 3. **Scan `product/plans/todo/`** — If one plan exists, use it. If multiple exist, pick the one with the lowest plan number. If none exist, error: "No plans found in product/plans/todo/"
 
-## Three Types of Sub-Agents
+## Detecting Frontend Phases
+
+Each phase in the plan declares a `**Type:**` (Backend, Frontend, DDD, ADR, Tooling). A phase is a **frontend phase** when its type is `Frontend` — or, if the plan predates typed phases, when it creates/modifies user-facing UI (components, pages, views, styles, templates).
+
+Frontend phases get two extra things the others don't:
+1. The implementation sub-agent is launched in **frontend mode** (design guidance + permission to apply taste).
+2. After `./do check` passes, the phase goes through a **visual review loop** before the commit.
+
+Non-frontend phases follow the plain implement → verify → commit cycle.
+
+## Four Types of Sub-Agents
 
 ### 1. Implementation Sub-Agent
 
@@ -31,6 +41,19 @@ Rules:
 - Do NOT create any commits
 - NEVER ask questions or use AskUserQuestion — just implement what the phase says
 - Report back what you implemented when done
+```
+
+**For frontend phases, append this to the instructions (frontend mode):**
+
+```
+This is a FRONTEND phase. UI quality matters as much as correctness.
+
+- Invoke the `frontend-design` skill (if available) before writing UI code, and follow its guidance on visual hierarchy, typography, spacing, and avoiding templated defaults.
+- If the UI/UX Spec references a Figma file/URL, use the Figma MCP (`get_design_context`, `get_screenshot`, `get_variable_defs`, Code Connect maps) to pull the exact design and reproduce it faithfully — the Figma file is the source of truth over your own judgment.
+- Read the plan's "UI/UX Spec" section and implement EVERY state it lists for the screens in this phase: loading, empty, error, success, and disabled — not just the happy path.
+- Honor the design direction, design tokens, and component/library choices fixed in the plan. Do NOT introduce a different design language.
+- Where the plan leaves a purely visual detail unspecified (exact spacing, micro-copy, hover/focus styling, transitions), you ARE allowed and expected to apply sound design judgment — this is the one exception to "implement the most literal interpretation." Do NOT invent new functional requirements or scope.
+- Make it responsive across the breakpoints named in the UI/UX Spec, and keyboard-accessible with visible focus states.
 ```
 
 ### 2. Verification Sub-Agent
@@ -75,6 +98,38 @@ Rules:
 - NEVER ask questions or use AskUserQuestion — just fix and report
 ```
 
+### 4. UI Review Sub-Agent (frontend phases only)
+
+Renders the running application and critiques the UI against the plan's UI/UX Spec. This is the visual equivalent of the verification sub-agent — it catches what `./do check` cannot (looks broken, wrong hierarchy, missing states, not responsive, inaccessible). Instructions to give the sub-agent:
+
+```
+You are reviewing the UI produced by the phase just implemented. Use the Playwright browser tools (load their schemas via ToolSearch with query "browser_navigate browser_take_screenshot browser_resize browser_snapshot").
+
+Setup:
+1. Make sure the app is running. Check if it is already up at the known URL; if not, start it with: ./do run 2>&1 | tee /tmp/do-run-ui.log & then wait ~5s.
+2. Determine the frontend URL using the same priority as the orchestrator: $HOST1–$HOST4 env vars → URLs printed in the run log → http://localhost:$PORT1 → the ./do script. Use the public HOST URL, never localhost, if HOST vars are set.
+
+Review, for the screen(s) this phase touched:
+[list the screens/components from the phase and the states from the UI/UX Spec]
+
+3. Navigate to each screen. Take a screenshot at desktop width (1280px) and mobile width (390px) — use browser_resize.
+4. For each state listed in the UI/UX Spec (loading, empty, error, success, disabled), exercise it if reachable and screenshot it.
+5. Check against the UI/UX Spec and the frontend-design principles:
+   - Visual hierarchy, spacing, alignment, typography — does it look intentional, not templated/broken?
+   - Are all required states present and handled (no raw error dumps, no blank empty states)?
+   - Responsive: does the mobile layout work (no overflow, tap targets usable)?
+   - Accessibility: visible focus states, readable contrast, labelled controls.
+   - Does it match the design direction/tokens fixed in the plan?
+
+Report back with one of:
+1. UI PASS — The UI matches the spec and looks intentional. Briefly note what you checked.
+2. UI ISSUES — A concrete, numbered list of problems, each with: the screen/state, what's wrong, and what it should be. Be specific and actionable (a fix sub-agent will act on this list verbatim).
+
+IMPORTANT:
+- Judge against the plan's spec and sound design principles, NOT personal preference for a different design language.
+- NEVER ask questions or use AskUserQuestion — just report the result.
+```
+
 ## Orchestration Process
 
 ### 1. Read and Analyze the Plan
@@ -104,6 +159,7 @@ For EACH phase in the plan:
 
 **a) Launch implementation sub-agent**
 - Provide the phase description with full context
+- For frontend phases, launch it in **frontend mode** (see sub-agent type 1)
 - Wait for completion
 
 **b) Launch verification sub-agent**
@@ -111,9 +167,19 @@ For EACH phase in the plan:
 
 **c) Handle verification result**
 
-- **PASS** → Proceed to commit
+- **PASS** → Proceed to visual review (frontend phases) or commit (other phases)
 - **CODE FAILURE** → Launch fix sub-agent with the log file path, then launch verification sub-agent again. Repeat up to 3 verify-fix cycles. If still failing after 3 cycles, STOP and inform the user.
 - **INFRASTRUCTURE FAILURE** → STOP. Inform the user about the infrastructure issue and the log file path. Do NOT retry, do NOT ask questions.
+
+**c2) Visual review (frontend phases only)**
+
+After `./do check` passes, and only for frontend phases:
+
+- Launch the **UI review sub-agent** for the screens/states this phase touched. Wait for result.
+- **UI PASS** → Proceed to commit.
+- **UI ISSUES** → Launch a fix sub-agent with the issue list (in frontend mode), then re-run the verification sub-agent (`./do check` must stay green), then launch the UI review sub-agent again. Repeat up to 3 review-fix cycles. If issues remain after 3 cycles, do NOT block: proceed to commit, and record the remaining UI issues so they surface in the final summary and PR body.
+
+This keeps any visual fixes folded into the same phase commit. The app may stay running between frontend phases — the UI review sub-agent reuses it rather than restarting each time.
 
 **d) Create commit**
 
@@ -198,6 +264,10 @@ The application is running and can be tested at:
 
 - [x] Phase 1: ...
 - [x] Phase 2: ...
+
+## Known UI Issues
+
+[Only if the visual review loop ended with unresolved UI issues on any frontend phase. List them as a checklist of follow-ups. Omit this section entirely if there are none.]
 ```
 
 **The "Live URLs" section is mandatory.** Always include it using the URLs determined in step 5. Never omit this section — even if no URL could be determined, include the section with a note that the URL needs to be checked manually.
@@ -227,6 +297,7 @@ Print the same summary to the CLI that was included in the PR body:
 - Branch name
 - PR URL (if created)
 - Application URLs (as determined in step 5 — from HOST variables, `./do run` output, PORT variables, or `./do` script)
+- Any unresolved UI issues from the visual review loop (or "none")
 - Confirmation that the plan is fully implemented and the app is running
 
 **The CLI summary and the PR body must contain the same information.** The PR is the permanent record — anyone looking at the PR should see exactly what the implementer saw.
@@ -241,15 +312,17 @@ Print the same summary to the CLI that was included in the PR body:
 - **Implements code changes** — Delegate to implementation sub-agents
 - **Fixes errors** — Delegate to fix sub-agents
 - **Skips verification** — Every phase must pass `./do check` before committing
+- **Reviews UI itself** — Delegate visual review of frontend phases to the UI review sub-agent (it drives Playwright, not the orchestrator)
 
 ### The Orchestrator ALWAYS:
 
 - **Creates a feature branch** from main before starting
 - **Resumes from where it left off** if the branch already exists
-- **Delegates implementation** to sub-agents
+- **Delegates implementation** to sub-agents (frontend mode for frontend phases)
 - **Delegates verification** to sub-agents
+- **Delegates visual review** to a UI review sub-agent for frontend phases, before committing
 - **Delegates error fixing** to sub-agents
-- **Creates commits** after verification passes
+- **Creates commits** after verification passes (and, for frontend phases, after the visual review loop)
 - **Stops on infrastructure failures** — Full stop, inform the user, do NOT ask or retry
 - **Creates small, focused commits** — One per phase, not batched
 - **Amends the last commit** to include the plan move to `done/`
@@ -276,6 +349,9 @@ This command is fully headless. Every operational scenario has a predefined beha
 | `GITHUB_TOKEN` set but PR creation fails | Inform user of the error. The branch is already pushed — they can create a PR manually. |
 | `./do check` fails with code errors | Launch fix sub-agent. Retry verification. Repeat up to 3 cycles, then full stop. |
 | `./do check` fails with infrastructure errors (DNS, network, permissions, missing tools) | Full stop. Inform the user what happened. Do NOT retry. |
+| Frontend phase: UI review returns UI ISSUES | Launch fix sub-agent (frontend mode), re-verify `./do check`, re-run UI review. Up to 3 review-fix cycles, then commit anyway and record remaining issues in the summary/PR. |
+| Frontend phase: app won't start for UI review | UI review sub-agent reports it could not render. Record as a known issue, proceed to commit. Do NOT block the pipeline. |
+| Phase has no `**Type:**` and isn't obviously UI | Treat as non-frontend: skip the visual review loop. |
 | `./do run` fails | Inform user of the error. Continue to PR creation — the failure is noted in the summary. |
 | Multiple plans in `product/plans/todo/` | Pick the one with the lowest plan number. |
 | No plans in `product/plans/todo/` | Error: "No plans found in product/plans/todo/". Stop. |

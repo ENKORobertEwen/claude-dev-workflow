@@ -102,13 +102,41 @@ The application runs behind a reverse proxy. Four port/host pairs are available 
 
 If the plan involves any server, API, or web feature, include explicit port/host assignments and ensure all cross-origin configuration uses the HOST variables.
 
-### 8. Define Acceptance Tests
+### 8. Consider UI/UX Design (frontend features)
+
+If the feature has a user-facing frontend, design quality is a first-class concern — not something to leave to the implementer's defaults. Decide the design WITH the user, the same way you decide architecture in step 3, and capture the result in the plan's UI/UX Spec (see step 11 format).
+
+**The user does NOT need to bring a design** — but they may, and the plan supports either path equally. Ask which source the design comes from:
+
+- **A) User-supplied via Figma** — The user provides a Figma file/URL. Use the Figma MCP to pull design context (`get_design_context`, `get_screenshot`, `get_variable_defs`, and Code Connect maps if present). Record the Figma URL and the extracted tokens/specs in the UI/UX Spec so the implementer reproduces it faithfully. Best for high-fidelity / brand-critical UI and multi-screen consistency.
+- **B) User-supplied, other references** — Screenshots, an existing app look, or a description the user gives. Capture these in the UI/UX Spec references.
+- **C) Claude-generated** — The user has no design. You *propose* a direction using the `frontend-design` skill, exactly like the architecture decisions in step 3, and the user approves or adjusts. Best for greenfield/speed; the visual-review loop in `/dev:implement` then refines it.
+
+These can be mixed (e.g. Claude proposes the overall direction, the user supplies Figma for the key screens). The point is that *a* direction is decided and written into the UI/UX Spec — not that the user delivers a polished spec. **Never block planning because the user hasn't provided a design.**
+
+Resolve, with the user (proposing defaults wherever they have no preference):
+
+- **Design direction** — Overall visual style and tone. Invoke the `frontend-design` skill (if available) to help shape an intentional aesthetic rather than templated defaults. Reference any existing design language in the app so new UI stays consistent.
+- **Reference designs** — Figma files, screenshots, or existing screens to match. If the user has a Figma URL, note it; the implementer can pull design context from it.
+- **Design system & tokens** — Component library and/or token set (colors, typography, spacing, radii). Pick explicitly; don't leave the implementer to invent one.
+- **Screens & components** — The list of screens/views and the key components each needs.
+- **States** — For every screen/component, the states that must be implemented: loading, empty, error, success, disabled. Missing states are the most common UI-quality gap.
+- **Responsive behavior** — Target breakpoints and how the layout adapts (e.g. desktop ≥1024px, mobile ≤480px).
+- **Accessibility** — Keyboard navigation, visible focus states, contrast, labelled controls. Note any specific requirements.
+
+The goal is that visual taste is fixed in the plan. The implementer should apply judgment only on small unspecified visual details — never on the overall design direction.
+
+If the feature has no frontend, skip this step and omit the UI/UX Spec from the plan.
+
+### 9. Define Acceptance Tests
 
 This is a critical step. The plan follows **Acceptance Test Driven Development (ATDD)**:
 
 1. Extract each acceptance criterion from step 1 into a concrete, testable scenario.
 2. Each acceptance criterion gets a corresponding acceptance test.
 3. Acceptance tests should test from the outside-in — through the application's public interfaces (API endpoints, CLI commands, UI interactions). Use real or in-process infrastructure where practical; mock only external services.
+
+**Frontend features:** acceptance criteria may cover UX, not just behavior — that a screen renders its loading/empty/error/success states, that the layout is responsive, that controls are keyboard-accessible. Where these are practical to assert in code (e.g. an empty-state element appears, a control has an accessible label), write them as acceptance tests. Where they are inherently visual (does it look right, is the hierarchy clear), they are verified by the visual review loop in `/dev:implement` rather than by an automated test — note these criteria in the UI/UX Spec instead of forcing a brittle pixel test.
 
 The acceptance tests are structured into the plan as follows:
 
@@ -121,7 +149,7 @@ The acceptance tests are structured into the plan as follows:
 
 The acceptance test passing is the definition of "phase complete."
 
-### 9. Determine Next Plan Number
+### 10. Determine Next Plan Number
 
 Scan both directories for the highest existing plan number:
 - `product/plans/todo/`
@@ -129,7 +157,7 @@ Scan both directories for the highest existing plan number:
 
 The new plan gets the next number (e.g., if highest is 004, new plan is 005).
 
-### 10. Write the Plan
+### 11. Write the Plan
 
 Create the plan file at `product/plans/todo/XXX-PLAN-FEATURE-NAME.md`.
 
@@ -157,7 +185,49 @@ Describe what this feature does and why it's needed. What problem does it solve?
 
 ---
 
+<!-- Include this section ONLY for features with a user-facing frontend. Omit it entirely otherwise. -->
+
+## UI/UX Spec
+
+### Design Direction
+
+{{Overall visual style and tone, decided with the user in step 8. Reference the existing design language if any.}}
+
+### References
+
+{{Figma URLs, screenshots, or existing screens to match. "None" if not applicable.}}
+
+### Design System & Tokens
+
+{{Component library and/or token set: colors, typography, spacing, radii. Be explicit.}}
+
+### Screens & Components
+
+| Screen / Component | Purpose | Key elements |
+|--------------------|---------|--------------|
+| {{name}} | {{what it's for}} | {{elements}} |
+
+### States
+
+For each screen/component, the states that must be implemented:
+
+| Screen / Component | States required |
+|--------------------|-----------------|
+| {{name}} | loading, empty, error, success, disabled (list those that apply) |
+
+### Responsive Behavior
+
+{{Target breakpoints and how the layout adapts. e.g. desktop ≥1024px, tablet, mobile ≤480px.}}
+
+### Accessibility
+
+{{Keyboard navigation, visible focus states, contrast, labelled controls, any specific requirements.}}
+
+---
+
 ## Phase 1: Acceptance Test Scaffolds
+
+**Type:** Tooling
 
 ### Goal
 
@@ -178,9 +248,20 @@ Create all acceptance tests as skipped/pending stubs. After this phase, `./do ch
 
 ## Phase 2: {{Phase Title}}
 
+**Type:** {{Backend | Frontend | DDD | ADR | Tooling}}
+
 ### Goal
 
 What this phase accomplishes.
+
+<!-- Include this subsection ONLY for Frontend phases. It tells the implementer how to build the UI and gives the visual review something concrete to check against. -->
+
+### Design Notes
+
+- **Screens/components in this phase:** {{from the UI/UX Spec}}
+- **States to implement:** {{loading, empty, error, success, disabled — those that apply}}
+- **Design direction & tokens:** {{reference the UI/UX Spec; note anything phase-specific}}
+- **Responsive/accessibility:** {{phase-specific notes, or "per UI/UX Spec"}}
 
 ### Acceptance Test (Red)
 
@@ -211,6 +292,8 @@ Verify the test **fails** (red) before implementing production code.
 
 ## Phase N: DDD — {{Update Glossary / Create Context Doc / Update Context Map}}
 
+**Type:** DDD
+
 ### Goal
 
 Document new domain concepts introduced by this feature.
@@ -231,6 +314,8 @@ Document new domain concepts introduced by this feature.
 
 ## Phase N: ADR — {{Decision Title}}
 
+**Type:** ADR
+
 ### Goal
 
 Record the architectural decision made for this feature.
@@ -248,6 +333,8 @@ Record the architectural decision made for this feature.
 ---
 
 ## Phase N: `./do` Script Updates
+
+**Type:** Tooling
 
 ### Goal
 
@@ -297,9 +384,9 @@ How will this feature behave when updating from an older version?
 - **Backwards compatibility**: How old installations are affected
 ````
 
-### 11. Review Plan via Sub-Agents
+### 12. Review Plan via Sub-Agents
 
-Before presenting the plan to the user, run an automated review using four specialized sub-agents in parallel:
+Before presenting the plan to the user, run an automated review using specialized sub-agents in parallel (four for backend-only plans, five when the plan has a frontend):
 
 #### Reviewer 1: Feasibility
 
@@ -339,14 +426,26 @@ This is the most critical reviewer. Checks:
 - Are naming conventions specified (file names, function names, variable names)?
 - Would two different implementers produce substantially the same result from this plan?
 
+**Frontend caveat:** purely visual micro-details (exact pixel spacing, hover/focus styling, transitions, micro-copy) do NOT need to be pinned down — the implementer is expected to apply design judgment there, guided by the UI/UX Spec and the `frontend-design` skill. Flag a frontend phase only when the *design direction, tokens, screens, or required states* are missing — not when a transition duration is unspecified.
+
+#### Reviewer 5: UI/UX Completeness (frontend plans only)
+
+Skip this reviewer if the plan has no frontend. Otherwise checks:
+- Is there a UI/UX Spec section, and does it cover design direction, design system/tokens, screens, and states?
+- Does every screen/component list its required states (loading, empty, error, success, disabled)?
+- Are responsive breakpoints and accessibility requirements specified?
+- Does every Frontend phase have Design Notes that connect it to the UI/UX Spec?
+- Is the design direction concrete enough that an implementer won't fall back to templated defaults — without being so rigid that it removes all visual judgment?
+- Do frontend acceptance criteria cover UX (states, responsiveness, a11y), not just behavior?
+
 **Process:**
-1. Launch all four reviewers in parallel as sub-agents. Provide each with the full plan text and the relevant codebase context.
+1. Launch the reviewers in parallel as sub-agents (Reviewer 5 only if the plan has a frontend). Provide each with the full plan text and the relevant codebase context.
 2. Collect all findings.
 3. Synthesize: resolve each finding by updating the plan.
 4. Run one final holistic review sub-agent with fresh eyes on the updated plan. This reviewer checks the whole plan end-to-end, including that the fixes from step 3 didn't introduce new issues.
 5. Apply any final fixes.
 
-### 12. Final Review with User
+### 13. Final Review with User
 
 Present the complete, reviewed plan to the user. Include a summary of what the review process found and fixed:
 
@@ -356,12 +455,12 @@ Present the complete, reviewed plan to the user. Include a summary of what the r
 - Note any `./do` script changes
 
 Then use `AskUserQuestion` to present a selection with two options:
-- **"Commit and push (Recommended)"** — The plan is approved. Proceed to step 13.
+- **"Commit and push (Recommended)"** — The plan is approved. Proceed to step 14.
 - **"I have changes"** — The user wants to iterate. Listen to their feedback, update the plan, and present the selection again.
 
 Do NOT ask an open-ended question. Always use the selection box so the user can approve quickly.
 
-### 13. Commit and Push
+### 14. Commit and Push
 
 Once the user approves the plan:
 
@@ -383,12 +482,14 @@ The plan is now on main and ready for `/dev:implement` to pick up.
 
 5. **The `./do` script is always maintained.** Every plan must consider whether `./do` needs updates and include them as explicit phases.
 
-6. **The plan must be decision-complete.** An implementer must be able to execute every phase mechanically. No ambiguity, no judgment calls, no unresolved choices.
+6. **The plan must be decision-complete.** An implementer must be able to execute every phase mechanically. No ambiguity, no judgment calls, no unresolved choices. **One exception:** on frontend phases, the implementer applies design judgment to small unspecified visual details, guided by the UI/UX Spec and the `frontend-design` skill. The plan fixes the design *direction*, system, screens, and states — not every pixel.
 
-7. **The plan is reviewed before the user sees it.** Four specialized sub-agent reviewers check feasibility, ATDD coverage, architecture, and decision completeness. Findings are fixed before presenting to the user.
+7. **The plan is reviewed before the user sees it.** Specialized sub-agent reviewers check feasibility, ATDD coverage, architecture, decision completeness, and — for frontend plans — UI/UX completeness. Findings are fixed before presenting to the user.
 
-8. **Plans follow the format defined in step 10.** The plan format is embedded above — do not look for external template files.
+8. **Plans follow the format defined in step 11.** The plan format is embedded above — do not look for external template files.
 
 9. **Plans go in `product/plans/todo/`.** After implementation via `/dev:implement`, they are moved to `product/plans/done/`.
 
 10. **Always commit and push.** The approved plan is committed to main and pushed immediately.
+
+11. **Frontend features get a UI/UX Spec.** Any user-facing frontend feature must include the UI/UX Spec section (design direction, system/tokens, screens, states, responsive, accessibility), mark its UI phases as `**Type:** Frontend` with Design Notes, and decide the design *with the user*. This is what lets `/dev:implement` build intentional UI and visually review it instead of falling back to defaults.

@@ -21,43 +21,55 @@ expensive "recompute everything" command.
 
 ## Goal
 
-A `/dev:figma-refresh-plan` command that re-pulls the current Figma design,
-maintains a layered, dependency-aware per-piece implementation-status ledger,
-and writes a rework plan to `product/plans/todo/` for everything that is not yet
-implemented against the current design. `/dev:implement` then executes that plan
-and writes the ledger back to `implemented`. The ledger gives a standing
-"what's open" overview between runs.
+A single, **adaptive** `/dev:figma-refresh-plan` command that always re-pulls
+the current Figma design and maintains a layered, dependency-aware per-piece
+implementation-status ledger — and **additionally** writes a rework plan to
+`product/plans/todo/` *only when there is an implemented baseline to diff
+against*. `/dev:implement` executes plans and writes the ledger back to
+`implemented`.
+
+Key insight: **pulling the design and generating a plan are different
+concerns.** Pulling is foundational and always valid (even on a greenfield
+project with no tech yet). Generating a rework plan only makes sense once the UI
+exists technically — otherwise there is nothing to "re-work" and no prior state
+to diff. So the command adapts to whether a baseline exists.
 
 ## Lifecycle and role split
 
 ```
-/dev:plan                Establishes the feature plan and, for Figma-sourced
-                         frontends, resolves the Figma MAPPING into the UI/UX
-                         Spec (screens x breakpoint, primitives/components via
-                         Code Connect, explicit ignore list). Does NOT pull
-                         pixels or enumerate per-piece frontend phases.
+1. /dev:figma-refresh-plan   (first run / greenfield)
+   - Pulls design, creates the ledger (all pieces "to-implement"), commits.
+   - Writes NO plan — there is no technical baseline to plan rework against.
+   - Reports: "Design pulled, baseline set. Run /dev:plan next."
 
-/dev:figma-refresh-plan  Reads the mapping, pulls fresh design, creates/updates
-                         the ledger, and writes a frontend rework plan to
-                         product/plans/todo/ with phases for every
-                         to-implement / to-review piece, in dependency order
-                         (tokens -> primitives -> components -> layouts ->
-                         views x breakpoint). First run = everything new = full
-                         initial UI plan; later runs = only what changed.
+2. /dev:plan                 (design-informed)
+   - Resolves the Figma MAPPING into the UI/UX Spec (screens x breakpoint,
+     primitives/components via Code Connect, explicit ignore list).
+   - Reads the pulled design files and plans BOTH the technical groundwork
+     (framework, env, routing, component architecture) and the UI build
+     against the design.
 
-/dev:implement           Executes plans (including the frontend rework plan).
-                         On completing a frontend piece, updates status.json:
-                         sets its last-implemented hash and flag = implemented.
+3. /dev:implement
+   - Executes the plan; on completing a frontend piece, writes status.json
+     back (last-implemented hash + flag = implemented).
+
+4. /dev:figma-refresh-plan   (later — design changed, baseline exists)
+   - Pulls fresh, diffs via the ledger, and NOW writes a rework plan to
+     product/plans/todo/ with phases for every changed (to-implement) /
+     dependent (to-review) piece, in dependency order (tokens -> primitives
+     -> components -> layouts -> views x breakpoint).
+
+5. /dev:implement            (executes the rework plan, writes ledger back)
 ```
 
-This separates concerns: `/plan` does the one-time structure resolution with the
-human; `figma-refresh-plan` is the repeatable pixels -> ledger -> plan bridge;
-`implement` is execution + ledger write-back.
+This separates concerns: the command is the repeatable design **pull + ledger**;
+`/plan` does the one-time, design-informed structure + groundwork planning;
+`/implement` is execution + ledger write-back. The command *also* emits a rework
+plan, but only in the diff case (step 4), never on the first plan-less pull.
 
-**To confirm at review:** (a) the first design pull happens via
-`figma-refresh-plan` (not `/plan`, not `/implement`); (b) `figma-refresh-plan`
-writes its own numbered plan file in `product/plans/todo/` rather than editing
-the feature plan in place.
+**To confirm at review:** `figma-refresh-plan` writes its own numbered plan file
+in `product/plans/todo/` (in the rework case) rather than editing the feature
+plan in place.
 
 ## Build on standards, not reinvented parts
 
@@ -149,23 +161,29 @@ is a primitive). This is resolved once, with the human, during `/plan` step 8:
      visual-review loop captures live screenshots via Playwright)
 5. Update the ledger: recompute per-node hashes, flip changed pieces to
    `to-implement`, cascade dependents to `to-review`.
-6. Write the rework plan: emit a plan file in `product/plans/todo/` with phases
-   for every `to-implement` / `to-review` piece, in dependency order (tokens →
-   primitives → components → layouts → views×breakpoint), using the plugin's
-   plan format (frontend phases with Design Notes pointing at the design files).
-   If nothing is open, write no plan and report "nothing to do."
+6. **Adaptive plan emission** — decide based on whether an implemented baseline
+   exists (any piece in the ledger already marked `implemented`):
+   - **No baseline (first/greenfield pull):** write NO plan. Report "design
+     pulled, baseline set — run /dev:plan next."
+   - **Baseline exists (design changed):** emit a rework plan in
+     `product/plans/todo/` with phases for every `to-implement` / `to-review`
+     piece, in dependency order (tokens → primitives → components → layouts →
+     views×breakpoint), using the plugin's plan format (frontend phases with
+     Design Notes pointing at the design files). If nothing is open, write no
+     plan and report "nothing to do."
 7. Commit: a dedicated snapshot commit (`Design snapshot: …`) for the design
-   files + ledger + plan, separate from implementation phase commits. **Skip
-   entirely if nothing changed** (no no-op commits).
+   files + ledger (+ rework plan, when emitted), separate from implementation
+   phase commits. **Skip entirely if nothing changed** (no no-op commits).
 
 `/dev:implement` later executes the plan and, per completed piece, writes back
 to `status.json` (last-implemented hash + flag = `implemented`).
 
 ## Invocation
 
-- **`/dev:figma-refresh-plan` (with a plan / current plan):** full behavior
-  incl. ledger + rework plan. This is also how the **first** design pull happens
-  (empty ledger → all pieces `to-implement` → full initial UI plan).
+- **`/dev:figma-refresh-plan` (with a plan / current plan):** always pulls +
+  updates the ledger. Emits a rework plan only when an implemented baseline
+  exists (adaptive — see Behavior step 6). The **first** pull is plan-less and
+  just sets the baseline.
 - **`/dev:figma-refresh-plan <figma-url>` (no plan):** ad-hoc pull + commit
   under `product/design/_adhoc/<figma-node>/`, **no ledger, no rework plan** —
   just fetch and snapshot.
@@ -193,7 +211,7 @@ applied unilaterally. (For Claude-generated designs with no Figma source,
 | Topic | Decision |
 |-------|----------|
 | Form | A **command** `/dev:figma-refresh-plan` (commands/figma-refresh-plan.md), not a skill |
-| Output | Refresh + ledger update + a **rework plan** in product/plans/todo/ |
+| Output | Always: pull + ledger update. **Adaptive:** rework plan in product/plans/todo/ ONLY when an implemented baseline exists; first/greenfield pull is plan-less and points to /dev:plan |
 | Implement integration | **No auto-refresh**; /implement only executes plans and writes the ledger back |
 | Change tracking | Living, layered, dependency-aware per-piece ledger |
 | Layers | tokens → primitives → components → layouts → views×breakpoint |

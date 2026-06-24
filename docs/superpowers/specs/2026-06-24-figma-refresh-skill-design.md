@@ -1,7 +1,14 @@
-# Figma Refresh Skill — Design
+# Figma Refresh Plan Command — Design
 
 **Status:** Design complete pending final user review, then writing-plans.
 **Date:** 2026-06-24
+
+> **Form:** This is a **command** (`/dev:figma-refresh-plan`,
+> `commands/figma-refresh-plan.md`), not a skill — consistent with the plugin
+> convention where `commands/` are invoked workflows and `skills/` are
+> auto-activating guardrails. It outputs a **rework plan**, hence the `-plan`
+> suffix. There is **no auto-refresh inside `/implement`** — refresh is an
+> explicit, plan-producing step; `/implement` only executes plans.
 
 ## Problem
 
@@ -14,10 +21,43 @@ expensive "recompute everything" command.
 
 ## Goal
 
-A `dev:figma-refresh` skill that re-pulls the current Figma design, maintains a
-layered, dependency-aware per-piece implementation-status ledger, and uses the
-fresh design for the implement round in progress. The ledger gives a standing
-"what's open" overview.
+A `/dev:figma-refresh-plan` command that re-pulls the current Figma design,
+maintains a layered, dependency-aware per-piece implementation-status ledger,
+and writes a rework plan to `product/plans/todo/` for everything that is not yet
+implemented against the current design. `/dev:implement` then executes that plan
+and writes the ledger back to `implemented`. The ledger gives a standing
+"what's open" overview between runs.
+
+## Lifecycle and role split
+
+```
+/dev:plan                Establishes the feature plan and, for Figma-sourced
+                         frontends, resolves the Figma MAPPING into the UI/UX
+                         Spec (screens x breakpoint, primitives/components via
+                         Code Connect, explicit ignore list). Does NOT pull
+                         pixels or enumerate per-piece frontend phases.
+
+/dev:figma-refresh-plan  Reads the mapping, pulls fresh design, creates/updates
+                         the ledger, and writes a frontend rework plan to
+                         product/plans/todo/ with phases for every
+                         to-implement / to-review piece, in dependency order
+                         (tokens -> primitives -> components -> layouts ->
+                         views x breakpoint). First run = everything new = full
+                         initial UI plan; later runs = only what changed.
+
+/dev:implement           Executes plans (including the frontend rework plan).
+                         On completing a frontend piece, updates status.json:
+                         sets its last-implemented hash and flag = implemented.
+```
+
+This separates concerns: `/plan` does the one-time structure resolution with the
+human; `figma-refresh-plan` is the repeatable pixels -> ledger -> plan bridge;
+`implement` is execution + ledger write-back.
+
+**To confirm at review:** (a) the first design pull happens via
+`figma-refresh-plan` (not `/plan`, not `/implement`); (b) `figma-refresh-plan`
+writes its own numbered plan file in `product/plans/todo/` rather than editing
+the feature plan in place.
 
 ## Build on standards, not reinvented parts
 
@@ -109,18 +149,27 @@ is a primitive). This is resolved once, with the human, during `/plan` step 8:
      visual-review loop captures live screenshots via Playwright)
 5. Update the ledger: recompute per-node hashes, flip changed pieces to
    `to-implement`, cascade dependents to `to-review`.
-6. Commit: a dedicated snapshot commit (`Design snapshot: …`), separate from
-   phase commits. **Skip entirely if nothing changed** (no no-op commits).
-7. Hand off: the implementer (frontend mode) reads from
-   `product/design/<plan-slug>/` and works `to-implement` / `to-review` pieces.
+6. Write the rework plan: emit a plan file in `product/plans/todo/` with phases
+   for every `to-implement` / `to-review` piece, in dependency order (tokens →
+   primitives → components → layouts → views×breakpoint), using the plugin's
+   plan format (frontend phases with Design Notes pointing at the design files).
+   If nothing is open, write no plan and report "nothing to do."
+7. Commit: a dedicated snapshot commit (`Design snapshot: …`) for the design
+   files + ledger + plan, separate from implementation phase commits. **Skip
+   entirely if nothing changed** (no no-op commits).
 
-## Entry points
+`/dev:implement` later executes the plan and, per completed piece, writes back
+to `status.json` (last-implemented hash + flag = `implemented`).
 
-- **Automatic in `/implement`:** once per run, before the first frontend phase,
-  when the plan references Figma.
-- **Manual:** `/dev:figma-refresh [plan|url]`. With a plan: full behavior incl.
-  ledger. With a **free Figma URL** and no plan: ad-hoc pull + commit under
-  `product/design/_adhoc/<figma-node>/`, **no ledger**.
+## Invocation
+
+- **`/dev:figma-refresh-plan` (with a plan / current plan):** full behavior
+  incl. ledger + rework plan. This is also how the **first** design pull happens
+  (empty ledger → all pieces `to-implement` → full initial UI plan).
+- **`/dev:figma-refresh-plan <figma-url>` (no plan):** ad-hoc pull + commit
+  under `product/design/_adhoc/<figma-node>/`, **no ledger, no rework plan** —
+  just fetch and snapshot.
+- **No auto-refresh inside `/implement`.** Refresh is always an explicit step.
 
 ## Conflict resolution vs `frontend-design`
 
@@ -143,6 +192,9 @@ applied unilaterally. (For Claude-generated designs with no Figma source,
 
 | Topic | Decision |
 |-------|----------|
+| Form | A **command** `/dev:figma-refresh-plan` (commands/figma-refresh-plan.md), not a skill |
+| Output | Refresh + ledger update + a **rework plan** in product/plans/todo/ |
+| Implement integration | **No auto-refresh**; /implement only executes plans and writes the ledger back |
 | Change tracking | Living, layered, dependency-aware per-piece ledger |
 | Layers | tokens → primitives → components → layouts → views×breakpoint |
 | Baseline | Since last implement run (last marked-implemented hash) |
@@ -156,8 +208,7 @@ applied unilaterally. (For Claude-generated designs with no Figma source,
 | Ledger location | `product/design/<plan-slug>/status.json`, one per plan |
 | Commit style | Dedicated snapshot commit, separate from phase commits; skip no-op |
 | Files committed | `tokens.json`, `context.md`, `source.md`, `status.json` (no screenshots) |
-| Manual scope | Plan-based + free Figma URL (ad-hoc, no ledger) |
-| Auto trigger | Once per implement run, before the first frontend phase |
+| Invocation | `/dev:figma-refresh-plan` (plan-based, incl. first pull) + free Figma URL (ad-hoc, no ledger/plan) |
 | Figma vs frontend-design | Figma wins; deviations reported, not applied |
 
 ## Open / to resolve during planning
@@ -167,3 +218,12 @@ applied unilaterally. (For Claude-generated designs with no Figma source,
   the phase cycle, and how the visual-review loop interacts with `to-review`.
 - Whether to phase implementation (e.g. v1: tokens + views×breakpoint; v2:
   full primitive/component dependency graph) — to decide in writing-plans.
+- **Reconcile `implement.md`:** the frontend-mode line added in v2.8.0 ("if the
+  UI/UX Spec references a Figma file, use the Figma MCP to pull…") must change —
+  `/implement` no longer pulls Figma. Instead it reads design files from
+  `product/design/<plan-slug>/` (produced by `figma-refresh-plan`) and writes
+  the ledger back on completion.
+- **Update `plan.md` step 8** to make the Figma path resolve the *mapping*
+  (screens×breakpoint, Code Connect primitives/components, ignore list) into the
+  UI/UX Spec, and to note that pixels + frontend phases come from
+  `figma-refresh-plan`.

@@ -140,6 +140,35 @@ The goal is that visual taste is fixed in the plan. The implementer should apply
 
 **Re-check all five levels on every planning pass.** A project is never "done" at the lower levels. Every time you plan a frontend feature, sweep all five — design system, primitives, components, layouts, views — for additions and changes. The design system and primitives change rarely, but new components and pages are constantly added or modified, and a new component may require a new primitive or token. Do not assume lower levels are frozen; explicitly confirm whether this feature touches each level and include phases accordingly. (`/dev:figma-refresh-plan` enforces the same sweep automatically via the ledger, but only for pieces present in the mapping — so keep the mapping current here when new pieces appear.)
 
+#### Adopting an existing / in-progress project
+
+If the project already has UI built (e.g. on an older flow, mid design
+implementation) and you are aligning it to this methodology, run this step as a
+one-time **base-straightening** pass — not a greenfield plan. The bestand must be
+reconciled against the design, or the ledger baseline will be wrong and the plan
+will ignore work already done.
+
+1. **Resolve the mapping + design system as usual** (above): Figma mapping,
+   naming convention, responsive scaling rules, breakpoints.
+2. **Audit the existing code against the design, across all five levels:**
+   - *Design system:* Is there a theme/token layer, or are values hardcoded? Do
+     existing tokens match the naming convention and responsive rules?
+   - *Primitives:* Do reusable primitives exist? Is there a browseable preview?
+   - *Components / layouts / views:* Which exist, and do they match the current
+     design at each breakpoint?
+3. **Classify each piece**: `matches` (already correct) / `refactor` (e.g.
+   hardcoded → token, restructure) / `rebuild` / `missing`. Record this
+   classification — it drives both the plan phases and the ledger seed.
+4. **Write the remediation as plan phases**, bottom-up: normalize the design
+   system first (extract hardcoded values to tokens), then primitives + preview,
+   then components/layouts/views. `matches` pieces get no phase.
+5. **Seed the ledger:** the pieces classified `matches` are handed to
+   `/dev:figma-refresh-plan` to seed as `implemented` (with their current hash);
+   everything else stays `to-implement`. Record the `matches` list in the plan so
+   the refresh can seed from it (see that command's "Adoption seeding").
+
+After this one-time pass the project is on the normal lifecycle.
+
 If the feature has no frontend, skip this step and omit the UI/UX Spec from the plan.
 
 ### 9. Define Acceptance Tests

@@ -251,6 +251,26 @@ derivable, report it — never invent. Lives in `implement.md` frontend mode.
 - **Narrow judgment exception:** only genuinely unspecified visual micro-details
   (transition timing, undefined hover/focus, missing micro-copy).
 
+## Adopting an existing / in-progress project
+
+For a project already mid design-implementation (e.g. on an older flow), the
+greenfield assumption breaks: code exists, but there is no ledger, mapping, or
+clean design-system layer, and the ledger can't auto-know what already matches
+the design. One-time base-straightening pass:
+
+1. `/dev:plan` runs as a base-straightening pass: resolve mapping + design system
+   as usual, then **audit existing code against the design across all five
+   levels**, classify each piece (`matches` / `refactor` / `rebuild` /
+   `missing`), and write the remediation as bottom-up plan phases. Record the
+   `matches` list.
+2. `/dev:figma-refresh-plan` pulls the design and builds the ledger, **seeding**
+   the `matches` pieces as `implemented` (current hash) and the rest as
+   `to-implement`. It writes **no** rework plan on this run (the remediation plan
+   came from `/dev:plan`).
+3. `/dev:implement` executes the remediation, writing the ledger back.
+
+After this one-time pass the project is on the normal lifecycle.
+
 ## Decisions log
 
 | Topic | Decision |

@@ -131,7 +131,9 @@ per-node version.
 Then update `status.json`:
 
 - **New piece** (not in the ledger): add it with `status: "to-implement"` and
-  `lastImplementedHash: null`.
+  `lastImplementedHash: null` — **unless** it is on the plan's adoption `matches`
+  list (see "Adoption seeding" below), in which case seed it as `implemented`
+  with `lastImplementedHash` set to its current hash.
 - **Direct change** (current hash ≠ `lastImplementedHash`): set
   `status: "to-implement"`.
 - **Unchanged** (current hash == `lastImplementedHash`): leave
@@ -182,6 +184,21 @@ them from the pulled design context.
   else `null`.
 - `status`: `implemented` | `to-implement` | `to-review`.
 
+#### Adoption seeding (existing / in-progress projects)
+
+Normally the first pull has no baseline, so every piece is `to-implement`. When a
+project is being adopted into the methodology, `/dev:plan`'s base-straightening
+pass produces an **adoption `matches` list** — the pieces whose existing code
+already matches the current design (recorded in the plan). On the first ledger
+build, seed each piece on that list as `status: "implemented"` with
+`lastImplementedHash` set to its current hash, instead of `to-implement`.
+
+This makes the ledger reflect reality from the start: already-correct pieces are
+not re-flagged, and only the `refactor` / `rebuild` / `missing` pieces show as
+open. Pieces not on the list follow the normal rules. Adoption seeding applies
+only on the first build for that plan; afterwards the project is on the normal
+lifecycle.
+
 ### 5. Decide whether to write a rework plan (adaptive)
 
 Determine whether an **implemented baseline** exists: any piece in the ledger
@@ -195,6 +212,10 @@ before).
   the design."*
 - **Baseline exists** (design changed after prior implementation): write a
   rework plan (step 6).
+- **Adoption seeding run** (this build seeded a `matches` list from `/dev:plan`'s
+  base-straightening pass): write **no** rework plan, even though seeded pieces
+  form a baseline. The remediation plan already came from `/dev:plan`. Just seed
+  the ledger and commit. Subsequent runs follow the normal adaptive rule.
 
 ### 6. Write the rework plan (baseline case only)
 

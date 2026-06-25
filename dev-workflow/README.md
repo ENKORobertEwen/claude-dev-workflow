@@ -78,6 +78,8 @@ It is **adaptive**: the first/greenfield pull just sets the baseline and points 
 
 The Figma mapping (which nodes are which logical pieces, per breakpoint, plus an ignore list) is resolved once with the user during `/plan`. This command consumes it; it does not pull inside `/implement`. Requires the Figma MCP and a Figma plan with Code Connect (Org/Enterprise + Dev seat) for reliable component identity.
 
+**Adopting an in-progress project:** if you already have UI built (e.g. on an older flow), run `/plan` once as a base-straightening pass — it audits the existing code against the design across all five levels (design system, primitives, components, layouts, views), classifies each piece (matches / refactor / rebuild / missing), and writes the remediation. `/figma-refresh-plan` then seeds the ledger from the "matches" list so already-correct work isn't re-flagged. After that one-time pass the project is on the normal lifecycle.
+
 ## Skills
 
 ### `verification-required`

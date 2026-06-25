@@ -222,6 +222,15 @@ derivable, report it — never invent. Lives in `implement.md` frontend mode.
 - **Design system first:** the first frontend step/phase always establishes the
   theme/token layer (colors, spacing, text styles, radii) from `tokens.json`.
   Nothing downstream can reference a token that doesn't exist yet.
+- **Responsive behavior is part of the design system, recorded as a contract.**
+  Figma exposes tokens as discrete named styles (`body-lg-regular`, …); the
+  responsive relationship lives in the **naming convention** + a **responsive
+  scaling rule** captured in the UI/UX Spec during `/plan` (strategy per
+  project: fluid or stepped). `figma-refresh-plan` parses the convention and,
+  for fluid families, derives `clamp()` tokens from the family min/max into
+  `tokens.json`; for stepped families it keeps the named tokens + the
+  per-breakpoint mapping. `/implement` applies them strictly by the rule and
+  never guesses which size belongs at which breakpoint.
 - **Primitives second, with a browseable preview:** build primitives next and
   expose them (Storybook stories, or a dev route like `/__design`) in all their
   states, so the visual-review loop can check non-screen pieces. Add components
@@ -259,6 +268,7 @@ derivable, report it — never invent. Lives in `implement.md` frontend mode.
 | Component identity | Code Connect primary (Org/Enterprise available); Claude-proposed + user-confirmed mapping as fallback |
 | Mapping resolution | In `/plan` step 8: Claude proposes, user confirms; explicit ignore list |
 | Tokens | Self-generated from `get_variable_defs`, DTCG format (no Tokens Studio) |
+| Responsive tokens | Contract = Figma naming convention + per-project scaling rule (fluid/stepped) recorded in the UI/UX Spec; fluid derives `clamp()` tokens, stepped keeps named tokens + per-breakpoint mapping |
 | Hash source | Self-computed per-node hash from node JSON, gated by file `version` (no native per-node hash exists) |
 | Ledger location | `product/design/<plan-slug>/status.json`, one per plan |
 | Commit style | Dedicated snapshot commit, separate from phase commits; skip no-op |

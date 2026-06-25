@@ -123,7 +123,12 @@ Resolve, with the user (proposing defaults wherever they have no preference):
 
 - **Design direction** — Overall visual style and tone. Invoke the `frontend-design` skill (if available) to help shape an intentional aesthetic rather than templated defaults. Reference any existing design language in the app so new UI stays consistent.
 - **Reference designs** — Figma files, screenshots, or existing screens to match. If the user has a Figma URL, note it; the implementer can pull design context from it.
-- **Design system & tokens** — Component library and/or token set (colors, typography, spacing, radii). Pick explicitly; don't leave the implementer to invent one.
+- **Design system & tokens** — Component library and/or token set (colors, typography, spacing, radii). Pick explicitly; don't leave the implementer to invent one. For Figma-sourced designs the tokens come from Figma as discrete named styles, so also capture:
+  - **Naming convention** — the pattern Figma uses (e.g. text `{role}-{size}-{weight}` → `body-lg-regular`; spacing `space-{step}`), so families and their size steps are machine-recognizable (`body-*-regular` is one family; lg/md/sm are steps).
+  - **Responsive behavior** per axis/family — does typography and spacing scale **fluid** or **stepped** across breakpoints? (Strategy is per-project; ask and record it.) Define the rule concretely:
+    - *Stepped:* which named token applies at each breakpoint (e.g. `body-regular` → desktop `body-lg-regular`, tablet `body-md-regular`, mobile `body-sm-regular`).
+    - *Fluid:* which family steps define min/max and over which viewport range — `figma-refresh-plan` derives a `clamp()` token from this.
+  - **Breakpoint values** (e.g. 480/768/1024) and **container max-widths** — part of the design system, not implicit.
 - **Screens & components** — The list of screens/views and the key components each needs.
 - **States** — For every screen/component, the states that must be implemented: loading, empty, error, success, disabled. Missing states are the most common UI-quality gap.
 - **Responsive behavior** — Target breakpoints and how the layout adapts (e.g. desktop ≥1024px, mobile ≤480px).
@@ -225,6 +230,18 @@ Views, layouts, and components are responsive — fill every breakpoint node the
 ### Design System & Tokens
 
 {{Component library and/or token set: colors, typography, spacing, radii. Be explicit.}}
+
+**Token naming convention:** {{e.g. text `{role}-{size}-{weight}` → `body-lg-regular`; spacing `space-{step}`. This is how families and size steps are recognized.}}
+
+**Breakpoints:** {{e.g. mobile ≤480, tablet 481–1024, desktop ≥1024}}
+**Container max-widths:** {{e.g. content 1200px, centered with 24px gutters}}
+
+**Responsive scaling** (strategy per axis — fluid or stepped):
+
+| Family / axis | Strategy | Rule |
+|---------------|----------|------|
+| {{e.g. body text}} | stepped | desktop `body-lg-regular`, tablet `body-md-regular`, mobile `body-sm-regular` |
+| {{e.g. section spacing}} | fluid | `clamp` from `space-4`(min) to `space-8`(max) over 480–1024px |
 
 ### Screens & Components
 

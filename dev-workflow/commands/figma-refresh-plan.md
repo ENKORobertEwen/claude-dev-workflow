@@ -96,12 +96,29 @@ Write into `product/design/<plan-slug>/`:
 |------|----------|
 | `source.md` | Figma file key + URL, mapped node IDs, file `version`, fetched-at timestamp |
 | `context.md` | Design context per piece (structure/layout/code hints from `get_design_context`) |
-| `tokens.json` | Design tokens in **W3C DTCG format** (`$value` / `$type` / `$description`), generated from `get_variable_defs` |
+| `tokens.json` | Design tokens in **W3C DTCG format** (`$value` / `$type` / `$description`), generated from `get_variable_defs` — the raw Figma-named tokens plus any derived responsive tokens (see below) |
 | `status.json` | The per-piece ledger (see schema below) |
 
 Do **not** store screenshots — the `/dev:implement` visual-review loop captures
 live screenshots via Playwright when needed; stored Figma images bloat the repo
 and are unreliable as a hash source.
+
+**Responsive tokens.** Figma exposes tokens as discrete named styles
+(`body-lg-regular`, `body-md-regular`, …); the responsive relationship lives in
+the **naming convention** captured in the UI/UX Spec, not in a single value.
+Using that convention and the spec's **responsive scaling** rules:
+
+- Parse the token names to group families and their size steps.
+- **Stepped families:** keep the discrete named tokens. The per-breakpoint
+  mapping in the spec tells `/dev:implement` which named token to apply at each
+  breakpoint.
+- **Fluid families:** derive a `clamp(min, preferred, max)` token from the
+  family's min/max steps over the spec's viewport range, and write it into
+  `tokens.json` alongside the raw named tokens (e.g. `body-regular-fluid`). The
+  implementer uses the derived token verbatim.
+
+If the spec defines no responsive rule for a family, keep its named tokens
+as-is and report it as a gap rather than guessing a scaling behavior.
 
 ### 4. Compute per-piece hashes and refresh the ledger
 

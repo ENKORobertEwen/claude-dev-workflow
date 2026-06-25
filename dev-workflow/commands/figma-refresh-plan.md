@@ -156,9 +156,11 @@ them from the pulled design context.
 ```
 
 - `level`: one of `token`, `primitive`, `component`, `layout`, `view`.
-- `breakpoint`: `desktop` / `tablet` / `mobile` for views and layouts; `null`
-  otherwise. Each breakpoint is a separate piece, so only the changed breakpoint
-  flips.
+- `breakpoint`: `desktop` / `tablet` / `mobile` for any piece that has
+  breakpoint-specific variants — **views, layouts, AND components** (components
+  are responsive and rendered at multiple breakpoints). `null` for pieces that
+  don't vary by breakpoint (typically tokens and simple primitives). Each
+  breakpoint is a separate piece, so only the changed breakpoint flips.
 - `codeTarget`: from Code Connect where mapped, else the plan's fallback mapping,
   else `null`.
 - `status`: `implemented` | `to-implement` | `to-review`.
@@ -278,8 +280,8 @@ This command is headless where possible. Predefined behaviors:
    re-resolve the Figma-to-piece mapping in this command.
 3. **Figma is the source of truth** for sourced designs; deviations are reported,
    not applied.
-4. **Per-breakpoint granularity** for views/layouts; only the changed breakpoint
-   flips.
+4. **Per-breakpoint granularity** for views, layouts, AND components (all are
+   responsive); only the changed breakpoint flips.
 5. **Soft cascade**: direct change → `to-implement`; dependents → `to-review`.
 6. **No no-op commits.** Skip the commit when nothing changed.
 7. **Tokens in DTCG format.** Generate `tokens.json` as W3C DTCG even though the

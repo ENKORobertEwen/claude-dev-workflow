@@ -131,7 +131,9 @@ Resolve, with the user (proposing defaults wherever they have no preference):
 
 The goal is that visual taste is fixed in the plan. The implementer should apply judgment only on small unspecified visual details — never on the overall design direction.
 
-**Order frontend phases bottom-up.** The **first** frontend phase always establishes the **design system** (colors, spacing, text styles, radii) as the project's theme / token layer — nothing else can reference tokens until they exist. The **second** builds the **primitives** and exposes them on a browseable preview (Storybook or a dev route) for visual checking. Then: components → layouts → views (per breakpoint). This is the same dependency order `/dev:figma-refresh-plan` uses for rework plans.
+**Order frontend phases bottom-up.** The **first** frontend phase always establishes the **design system** (colors, spacing, text styles, radii) as the project's theme / token layer — nothing else can reference tokens until they exist. The **second** builds the **primitives** and exposes them on a browseable preview (Storybook or a dev route) for visual checking. Then: components → layouts → views. **Components, layouts, and views are all responsive** — map and build each across its breakpoints (desktop/tablet/mobile), not just views. This is the same dependency order `/dev:figma-refresh-plan` uses for rework plans.
+
+**Re-check all five levels on every planning pass.** A project is never "done" at the lower levels. Every time you plan a frontend feature, sweep all five — design system, primitives, components, layouts, views — for additions and changes. The design system and primitives change rarely, but new components and pages are constantly added or modified, and a new component may require a new primitive or token. Do not assume lower levels are frozen; explicitly confirm whether this feature touches each level and include phases accordingly. (`/dev:figma-refresh-plan` enforces the same sweep automatically via the ledger, but only for pieces present in the mapping — so keep the mapping current here when new pieces appear.)
 
 If the feature has no frontend, skip this step and omit the UI/UX Spec from the plan.
 
@@ -213,7 +215,10 @@ Confirmed with the user. Logical pieces, their Figma node IDs per breakpoint, an
 | Logical piece | Level | Desktop node | Tablet node | Mobile node | Code target |
 |---------------|-------|--------------|-------------|-------------|-------------|
 | {{e.g. Login}} | view | `{{node}}` | `{{node}}` | `{{node}}` | `{{Code Connect / path}}` |
+| {{e.g. Card}} | component | `{{node}}` | `{{node}}` | `{{node}}` | `{{Code Connect / path}}` |
 | {{e.g. Button}} | primitive | `{{node}}` | — | — | `{{Code Connect / path}}` |
+
+Views, layouts, and components are responsive — fill every breakpoint node they have. Tokens and simple primitives that don't vary by breakpoint use a single node (`—` for the rest).
 
 **Ignore (do not build):** {{flow/annotation frames to exclude, by name or node ID}}
 

@@ -115,8 +115,15 @@ Tokens / Design-System   (Figma Variables/Styles -> DTCG tokens.json)
 - Each entry = one design piece at any level, with: its identity (Code Connect
   id where mapped, else the plan-confirmed mapping id), the Figma node id(s),
   the self-computed hash last implemented against, and a status flag.
-- **Tracking granularity:** per breakpoint for views (desktop/tablet/mobile are
-  separate entries), and per piece at the token/primitive/component levels.
+- **Tracking granularity:** per breakpoint for views, layouts, AND components
+  (all are responsive; desktop/tablet/mobile are separate entries), and per
+  piece at the token/primitive levels.
+- **Every planning pass re-checks all five levels.** Projects are never "done"
+  at the lower levels: design system and primitives change rarely, but
+  components and pages are constantly added/changed (and a new component may
+  need a new primitive/token). `/plan` must sweep all five for additions and
+  changes and keep the mapping current; `/dev:figma-refresh-plan` enforces the
+  same sweep via the ledger for pieces present in the mapping.
 - **Dependency edges** come from instance → main-component references (which
   view/component uses which primitive) plus Code Connect identity.
 - **Cascade (soft):** on refresh, a piece whose hash changed flips to
@@ -246,7 +253,8 @@ derivable, report it — never invent. Lives in `implement.md` frontend mode.
 | Layers | tokens → primitives → components → layouts → views×breakpoint |
 | Baseline | Since last implement run (last marked-implemented hash) |
 | Cascade | Soft: direct hit `to-implement`, dependents `to-review` |
-| Granularity | Per breakpoint for views; per piece at lower levels |
+| Granularity | Per breakpoint for views, layouts AND components (all responsive); per piece at token/primitive levels |
+| Coverage | Every planning pass re-checks all five levels for additions/changes; lower levels are never assumed frozen |
 | Separate diff skill | Subsumed by the ledger |
 | Component identity | Code Connect primary (Org/Enterprise available); Claude-proposed + user-confirmed mapping as fallback |
 | Mapping resolution | In `/plan` step 8: Claude proposes, user confirms; explicit ignore list |

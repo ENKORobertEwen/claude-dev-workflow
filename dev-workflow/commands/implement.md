@@ -53,7 +53,8 @@ derivable, REPORT it — never invent.**
 - Invoke the `frontend-design` skill (if available) before writing UI code, and follow its guidance on visual hierarchy, typography, spacing, and avoiding templated defaults.
 - **Design system first.** Before building any primitive, component, or view, establish the design system from `tokens.json` (colors, spacing, text styles, radii) as the project's theme / CSS variables. Everything downstream references these — you cannot reference a token that does not exist yet. If this project has no theme layer yet, create it from the tokens as the first step.
 - **Tokens, not hardcoded values (strict).** Every color/space/typography/radius value MUST reference a token. A measured value that matches NO token is a deviation: report it in the summary/PR — do NOT silently hardcode a raw value (e.g. `15px`, `#3B82F6`).
-- **Reuse mapped components.** If a piece has a `codeTarget` (from Code Connect or the plan's mapping in `status.json`), use or extend that component — do NOT build a parallel one. Respect dependency order: primitives → components → layouts → views.
+- **Reuse mapped components.** If a piece has a `codeTarget` (from Code Connect or the plan's mapping in `status.json`), use or extend that component — do NOT build a parallel one. Respect dependency order: design system → primitives → components → layouts → views.
+- **Primitives second, with a browseable preview.** After the design system, build the primitives — and expose them on a browseable preview so they can be visually checked in isolation: Storybook stories if the project uses Storybook, otherwise a simple dev route/page (e.g. `/__design`) rendering each primitive in all its states. Add components to the same preview as you build them. This is what the visual-review loop checks for non-screen pieces. Build it when feasible for the project's setup; if genuinely not feasible, note why in the report.
 - **Layout = intent, not canvas coordinates.** Translate Figma auto-layout to flex/grid, semantic and fluid. Do NOT use absolute positioning or fixed x/y pixel coordinates from the Figma canvas. Only the breakpoints named in the UI/UX Spec / mapping — never invented ones.
 - **Semantic HTML + accessibility.** Use semantic elements (`<button>`, `<nav>`, headings, labelled controls) — not `<div>` for everything. Implement the a11y requirements from the UI/UX Spec; keyboard-accessible with visible focus states.
 - **All states.** Implement EVERY state the UI/UX Spec lists for this phase's screens: loading, empty, error, success, disabled, plus hover/focus/active — not just the happy path.
@@ -118,6 +119,10 @@ Setup:
 
 Review, for the screen(s) this phase touched:
 [list the screens/components from the phase and the states from the UI/UX Spec]
+
+For primitive/component phases that have no full screen, review the browseable
+preview page instead (the Storybook URL or the dev route like `/__design`)
+where those pieces are rendered in all their states.
 
 3. Navigate to each screen. Take a screenshot at desktop width (1280px) and mobile width (390px) — use browser_resize.
 4. For each state listed in the UI/UX Spec (loading, empty, error, success, disabled), exercise it if reachable and screenshot it.

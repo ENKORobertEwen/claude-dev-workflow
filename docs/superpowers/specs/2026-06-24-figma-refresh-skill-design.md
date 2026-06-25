@@ -215,6 +215,10 @@ derivable, report it — never invent. Lives in `implement.md` frontend mode.
 - **Design system first:** the first frontend step/phase always establishes the
   theme/token layer (colors, spacing, text styles, radii) from `tokens.json`.
   Nothing downstream can reference a token that doesn't exist yet.
+- **Primitives second, with a browseable preview:** build primitives next and
+  expose them (Storybook stories, or a dev route like `/__design`) in all their
+  states, so the visual-review loop can check non-screen pieces. Add components
+  to the same preview as built. Best-effort ("when feasible").
 - **Tokens strict:** every value references a token; a value matching no token
   is a reported deviation, never a silent hardcode.
 - **Reuse mapped components:** use the `codeTarget` (Code Connect / mapping);

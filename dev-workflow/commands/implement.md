@@ -46,14 +46,21 @@ Rules:
 **For frontend phases, append this to the instructions (frontend mode):**
 
 ```
-This is a FRONTEND phase. UI quality matters as much as correctness.
+This is a FRONTEND phase. UI quality matters as much as correctness. The
+governing rule: **derive everything from the design artifacts; for anything not
+derivable, REPORT it — never invent.**
 
 - Invoke the `frontend-design` skill (if available) before writing UI code, and follow its guidance on visual hierarchy, typography, spacing, and avoiding templated defaults.
-- For Figma-sourced designs, do NOT pull from Figma yourself. Read the design files that `/dev:figma-refresh-plan` already produced under `product/design/<plan-slug>/` (`context.md`, `tokens.json`) and the piece's `figmaNodeIds` / `codeTarget` from `status.json`. The Figma design is the source of truth over your own judgment; reproduce it faithfully. If the design appears to violate a design principle, report it — do not change it unilaterally.
-- Read the plan's "UI/UX Spec" section and implement EVERY state it lists for the screens in this phase: loading, empty, error, success, and disabled — not just the happy path.
-- Honor the design direction, design tokens, and component/library choices fixed in the plan. Do NOT introduce a different design language.
-- Where the plan leaves a purely visual detail unspecified (exact spacing, micro-copy, hover/focus styling, transitions), you ARE allowed and expected to apply sound design judgment — this is the one exception to "implement the most literal interpretation." Do NOT invent new functional requirements or scope.
-- Make it responsive across the breakpoints named in the UI/UX Spec, and keyboard-accessible with visible focus states.
+- **Design system first.** Before building any primitive, component, or view, establish the design system from `tokens.json` (colors, spacing, text styles, radii) as the project's theme / CSS variables. Everything downstream references these — you cannot reference a token that does not exist yet. If this project has no theme layer yet, create it from the tokens as the first step.
+- **Tokens, not hardcoded values (strict).** Every color/space/typography/radius value MUST reference a token. A measured value that matches NO token is a deviation: report it in the summary/PR — do NOT silently hardcode a raw value (e.g. `15px`, `#3B82F6`).
+- **Reuse mapped components.** If a piece has a `codeTarget` (from Code Connect or the plan's mapping in `status.json`), use or extend that component — do NOT build a parallel one. Respect dependency order: primitives → components → layouts → views.
+- **Layout = intent, not canvas coordinates.** Translate Figma auto-layout to flex/grid, semantic and fluid. Do NOT use absolute positioning or fixed x/y pixel coordinates from the Figma canvas. Only the breakpoints named in the UI/UX Spec / mapping — never invented ones.
+- **Semantic HTML + accessibility.** Use semantic elements (`<button>`, `<nav>`, headings, labelled controls) — not `<div>` for everything. Implement the a11y requirements from the UI/UX Spec; keyboard-accessible with visible focus states.
+- **All states.** Implement EVERY state the UI/UX Spec lists for this phase's screens: loading, empty, error, success, disabled, plus hover/focus/active — not just the happy path.
+- **Assets and copy.** Use exported assets / the existing icon set — do NOT redraw icons. Use the exact text/copy from the design — do NOT paraphrase.
+- **Follow project conventions.** Units (px/rem), CSS approach, and file structure come from CLAUDE.md and the existing code — match them; do NOT impose a different convention.
+- **Figma is the source of truth** for sourced designs; read the design files `/dev:figma-refresh-plan` produced (`context.md`, `tokens.json`) — do NOT pull from Figma yourself. If the design appears to violate a design principle, report it rather than changing it.
+- **Only unspecified visual micro-details** (exact transition timing, micro-copy where the design has none, hover/focus styling Figma doesn't define) may use your design judgment — this is the one narrow exception to "implement the most literal interpretation." Do NOT invent functional requirements or scope.
 ```
 
 ### 2. Verification Sub-Agent

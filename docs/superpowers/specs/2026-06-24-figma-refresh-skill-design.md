@@ -207,6 +207,30 @@ applied unilaterally. (For Claude-generated designs with no Figma source,
 - Nothing changed since last run: report "no changes", skip commit.
 - Component unmapped in Code Connect: use the plan-confirmed fallback mapping.
 
+## Design-to-code guardrails (`/implement` frontend mode)
+
+Governing rule: derive everything from the design artifacts; for anything not
+derivable, report it — never invent. Lives in `implement.md` frontend mode.
+
+- **Design system first:** the first frontend step/phase always establishes the
+  theme/token layer (colors, spacing, text styles, radii) from `tokens.json`.
+  Nothing downstream can reference a token that doesn't exist yet.
+- **Tokens strict:** every value references a token; a value matching no token
+  is a reported deviation, never a silent hardcode.
+- **Reuse mapped components:** use the `codeTarget` (Code Connect / mapping);
+  no parallel components; dependency order primitives → components → layouts →
+  views.
+- **Layout = intent:** Figma auto-layout → flex/grid, semantic and fluid; no
+  absolute/canvas-pixel positioning; only the mapped breakpoints.
+- **Semantic HTML + a11y:** semantic elements, keyboard access, visible focus,
+  per the UI/UX Spec.
+- **All states, real assets, verbatim copy:** implement every spec'd state;
+  export assets (don't redraw); use exact copy (don't paraphrase).
+- **Follow project conventions:** units, CSS approach, file structure from
+  CLAUDE.md / existing code — not an imposed standard.
+- **Narrow judgment exception:** only genuinely unspecified visual micro-details
+  (transition timing, undefined hover/focus, missing micro-copy).
+
 ## Decisions log
 
 | Topic | Decision |

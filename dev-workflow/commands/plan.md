@@ -131,6 +131,8 @@ Resolve, with the user (proposing defaults wherever they have no preference):
 
 The goal is that visual taste is fixed in the plan. The implementer should apply judgment only on small unspecified visual details — never on the overall design direction.
 
+**Order frontend phases bottom-up.** The **first** frontend phase always establishes the **design system** (colors, spacing, text styles, radii) as the project's theme / token layer — nothing else can reference tokens until they exist. Then: primitives → components → layouts → views (per breakpoint). This is the same dependency order `/dev:figma-refresh-plan` uses for rework plans.
+
 If the feature has no frontend, skip this step and omit the UI/UX Spec from the plan.
 
 ### 9. Define Acceptance Tests

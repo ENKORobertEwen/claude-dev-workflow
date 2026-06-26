@@ -336,7 +336,10 @@ Print the same summary to the CLI that was included in the PR body:
 - PR URL (if created)
 - Application URLs (as determined in step 5 — from HOST variables, `./do run` output, PORT variables, or `./do` script)
 - Any unresolved UI issues from the visual review loop (or "none")
+- For Figma-sourced work: how many pieces are now `awaiting-acceptance` (built, not yet signed off) and the pointer to `/dev:figma-accept`
 - Confirmation that the plan is fully implemented and the app is running
+
+**Do NOT suggest running `/dev:figma-refresh-plan` after implementing.** `/implement` already keeps the ledger current via the per-phase write-back (step c3), so the ledger is clean when this command finishes. `/dev:figma-refresh-plan` is only for the first design pull or when the Figma design *changes* — never a post-implement cleanup step. The only acceptance-related follow-up to mention is `/dev:figma-accept` (human sign-off), which is separate.
 
 **The CLI summary and the PR body must contain the same information.** The PR is the permanent record — anyone looking at the PR should see exactly what the implementer saw.
 
@@ -390,6 +393,8 @@ This command is fully headless. Every operational scenario has a predefined beha
 | Frontend phase: UI review returns UI ISSUES | Launch fix sub-agent (frontend mode), re-verify `./do check`, re-run UI review. Up to 3 review-fix cycles, then commit anyway and record remaining issues in the summary/PR. |
 | Frontend phase: app won't start for UI review | UI review sub-agent reports it could not render. Record as a known issue, proceed to commit. Do NOT block the pipeline. |
 | Phase has no `**Type:**` and isn't obviously UI | Treat as non-frontend: skip the visual review loop. |
+| Frontend phase is Figma-sourced but no design files / ledger exist (`product/design/<plan-slug>/status.json` missing — `figma-refresh-plan` was never run) | Full stop BEFORE that phase, once, with: "This plan is Figma-sourced — run `/dev:figma-refresh-plan` first to pull the design and create the ledger, then re-run `/dev:implement`." Do NOT improvise, do NOT proceed to guess the design, do NOT repeat the reminder. |
+| Implement finished; ledger written back | The ledger is current. Do NOT suggest running `figma-refresh-plan` afterward — it is not a cleanup step. The only follow-up to mention is `/dev:figma-accept` for human sign-off. |
 | `./do run` fails | Inform user of the error. Continue to PR creation — the failure is noted in the summary. |
 | Multiple plans in `product/plans/todo/` | Pick the one with the lowest plan number. |
 | No plans in `product/plans/todo/` | Error: "No plans found in product/plans/todo/". Stop. |

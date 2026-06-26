@@ -1,32 +1,37 @@
 # Figma Refresh Plan Command
 
 Pull the current Figma design into the repo, maintain a per-piece
-implementation-status ledger, and — when there is already an implemented
-baseline — write a rework plan for everything that has drifted from the design.
+implementation-status ledger, and write the **UI plan** from that ledger — the
+phases for every piece that is open (not yet implemented against the current
+design). This is the single source of UI plans, first build and later rework
+alike.
 
-This command is **adaptive**:
+This command runs **after `/dev:plan`**, which resolves the Figma mapping and
+design-system spec it depends on. It does the pixels → ledger → plan bridge:
 
 - **Pulling the design and maintaining the ledger always happens.**
-- **Writing a rework plan only happens when an implemented baseline exists.** On
-  the first/greenfield pull there is no technical UI to plan rework against and
-  nothing to diff, so the command just sets the baseline and points you at
-  `/dev:plan`.
+- **A UI plan is written for every open piece** (`to-implement` / `to-review`),
+  in dependency order. The only time no plan is written is when nothing is open
+  (everything implemented and unchanged).
 
 There is **no automatic refresh inside `/implement`** — refreshing is always
-this explicit step.
+this explicit step, and `/dev:implement` only executes plans.
 
 ## Where this sits in the workflow
 
 ```
-1. /dev:figma-refresh-plan   First/greenfield run: pull design, create the
-                             ledger (all pieces "to-implement"), commit. No
-                             plan. Reports: "Design pulled — run /dev:plan."
+1. /dev:plan                 Resolves the Figma mapping + design-system spec
+                             (naming convention, responsive rules) into the
+                             UI/UX Spec, and plans the technical groundwork
+                             (env, framework, routing, architecture). Does NOT
+                             write per-piece UI phases.
 
-2. /dev:plan                 Design-informed: resolves the Figma mapping into
-                             the UI/UX Spec and plans the technical groundwork
-                             plus the UI build against the pulled design.
+2. /dev:figma-refresh-plan   Pull the design (using the mapping), create/update
+                             the ledger, and write the UI plan from it — first
+                             run: all open pieces; later runs: only what changed.
 
-3. /dev:implement            Builds it; writes the ledger back to "implemented".
+3. /dev:implement            Executes the plans; writes the ledger back to
+                             "implemented".
 
 4. /dev:figma-refresh-plan   Later, design changed: pull fresh, diff via the
                              ledger, write a rework plan for the changed
@@ -210,36 +215,36 @@ open. Pieces not on the list follow the normal rules. Adoption seeding applies
 only on the first build for that plan; afterwards the project is on the normal
 lifecycle.
 
-### 5. Decide whether to write a rework plan (adaptive)
+### 5. Write the UI plan from the ledger
 
-Determine whether an **implemented baseline** exists: any piece in the ledger
-with `status: "implemented"` (i.e. something was built against the design
-before).
+Collect the **open pieces**: everything with `status: "to-implement"` or
+`status: "to-review"`. (Adoption-seeded `implemented` pieces are not open, so
+they get no phase — exactly the intended effect.)
 
-- **No baseline** (first/greenfield pull — every piece is `to-implement` and
-  none has ever been implemented): write **no plan**. Continue to commit, then
-  report: *"Design pulled and baseline set. There is no implemented UI yet — run
-  `/dev:plan` to plan the technical groundwork and the initial UI build against
-  the design."*
-- **Baseline exists** (design changed after prior implementation): write a
-  rework plan (step 6).
-- **Adoption seeding run** (this build seeded a `matches` list from `/dev:plan`'s
-  base-straightening pass): write **no** rework plan, even though seeded pieces
-  form a baseline. The remediation plan already came from `/dev:plan`. Just seed
-  the ledger and commit. Subsequent runs follow the normal adaptive rule.
+- **If nothing is open** (every piece `implemented` and unchanged): write **no
+  plan**. Commit the design/ledger snapshot if anything changed, then report
+  "nothing to do."
+- **Otherwise**: write the UI plan (step 6). This is the same whether it's the
+  first build (all pieces open) or a later rework (only changed pieces open) —
+  the ledger drives it either way.
 
-### 6. Write the rework plan (baseline case only)
+This is the single source of UI plans. `/dev:plan` does not write per-piece UI
+phases; it only resolves the mapping + design-system spec and plans the
+non-UI technical groundwork.
+
+### 6. Write the UI plan
 
 Determine the next plan number by scanning `product/plans/todo/` and
 `product/plans/done/` for the highest number; use the next one.
 
-Write `product/plans/todo/XXX-PLAN-FIGMA-REWORK-<feature>.md` using the plugin's
-plan format (the same format `/dev:plan` produces). Specifics:
+Write `product/plans/todo/XXX-PLAN-FIGMA-UI-<feature>.md` (or `-REWORK-` for a
+later diff run) using the plugin's plan format. Specifics:
 
-- **Acceptance Criteria**: each changed piece that must visually match the
-  updated design.
-- **Phase ordering**: dependency order — `token` → `primitive` → `component` →
-  `layout` → `view×breakpoint`. Lower levels first so fixes cascade naturally.
+- **Acceptance Criteria**: each open piece must visually match the current
+  design.
+- **Phase ordering**: dependency order — `token` (design system) → `primitive`
+  (with browseable preview) → `component` → `layout` → `view×breakpoint`. Lower
+  levels first so the design system exists before anything references it.
 - **One phase per piece** (or per tightly-coupled small group). Each phase:
   - `**Type:** Frontend`
   - **Design Notes** pointing at the design files
@@ -252,8 +257,7 @@ plan format (the same format `/dev:plan` produces). Specifics:
   needed it just confirms and marks the ledger.
 - **Do NOT add phases for `awaiting-acceptance` pieces.** Those are built and
   unchanged — there is nothing to rebuild; they are a human sign-off gap,
-  surfaced in the report and resolved via `/dev:figma-accept`, not the rework
-  plan.
+  surfaced in the report and resolved via `/dev:figma-accept`, not the UI plan.
 - Note in the plan overview which file version this rework targets and which
   pieces are `to-implement` vs `to-review`.
 
@@ -263,7 +267,7 @@ Make a **dedicated snapshot commit**, separate from any implementation phase
 commits:
 
 ```bash
-git add product/design/<plan-slug>/ product/plans/todo/   # plan dir only if a rework plan was written
+git add product/design/<plan-slug>/ product/plans/todo/   # plan dir only if a UI plan was written
 git commit -m "Design snapshot: <feature> (figma file v<version>)"
 ```
 
@@ -278,8 +282,9 @@ Print a concise summary:
 - File version pulled and fetched-at.
 - Counts: `to-implement`, `to-review`, `awaiting-acceptance` (built but not
   signed off), `accepted`.
-- Whether a rework plan was written (and its path), or the "run /dev:plan"
-  pointer for the first pull.
+- Whether a UI plan was written (and its path), or "nothing to do" when no piece
+  is open.
+- The next step: run `/dev:implement` to execute the plan(s).
 - The design files path.
 
 ## Ledger write-back (performed by `/dev:implement`, documented here)
@@ -319,18 +324,21 @@ This command is headless where possible. Predefined behaviors:
 | Figma MCP unavailable | Report clearly. Stop. Do NOT guess design state. |
 | File version unchanged since last pull | Report "no changes". No commit, no plan. Stop. |
 | No Figma reference in plan / no plan and no URL | Report "nothing to refresh". Stop. |
-| Plan references Figma but has no confirmed mapping | Report that `/dev:plan` must establish the mapping first. Stop. |
+| No mapping yet (`/dev:plan` not run for this Figma file) | Report that `/dev:plan` must establish the mapping first. Stop. This is the ONLY case that points back to `/dev:plan`. |
 | Component not mapped in Code Connect | Use the plan's confirmed fallback mapping for identity. |
-| First/greenfield pull (no implemented baseline) | Pull + ledger + commit. No plan. Point to `/dev:plan`. |
-| Baseline exists, pieces changed | Write rework plan in `product/plans/todo/`. |
-| Baseline exists, nothing changed | Report "nothing to do". No commit, no plan. |
+| Open pieces exist (first build or later diff) | Pull + ledger + write the UI plan in `product/plans/todo/` + commit. Point to `/dev:implement`. |
+| Nothing open (all implemented, unchanged) | Report "nothing to do". No plan; no commit unless the snapshot itself changed. |
 | Ad-hoc free URL, no plan | Raw snapshot under `product/design/_adhoc/`. No ledger, no plan. |
 
 ## Critical Rules
 
-1. **Pulling always; planning only with a baseline.** Never write a rework plan
-   on the first/greenfield pull — there is no UI to rework and nothing to diff.
-2. **The mapping is established in `/dev:plan`, consumed here.** Do not invent or
+1. **Runs after `/dev:plan`, never before.** It consumes the mapping +
+   design-system spec that `/dev:plan` produces. If no mapping exists yet, stop
+   and point to `/dev:plan`.
+2. **Single source of UI plans.** This command writes the UI plan from the ledger
+   for every open piece — first build and later rework alike. `/dev:plan` does
+   not write per-piece UI phases. The only no-plan case is nothing open.
+3. **The mapping is established in `/dev:plan`, consumed here.** Do not invent or
    re-resolve the Figma-to-piece mapping in this command.
 3. **Figma is the source of truth** for sourced designs; deviations are reported,
    not applied.

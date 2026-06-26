@@ -136,7 +136,9 @@ Resolve, with the user (proposing defaults wherever they have no preference):
 
 The goal is that visual taste is fixed in the plan. The implementer should apply judgment only on small unspecified visual details — never on the overall design direction.
 
-**Order frontend phases bottom-up.** The **first** frontend phase always establishes the **design system** (colors, spacing, text styles, radii) as the project's theme / token layer — nothing else can reference tokens until they exist. The **second** builds the **primitives** and exposes them on a browseable preview (Storybook or a dev route) for visual checking. Then: components → layouts → views. **Components, layouts, and views are all responsive** — map and build each across its breakpoints (desktop/tablet/mobile), not just views. This is the same dependency order `/dev:figma-refresh-plan` uses for rework plans.
+**`/plan` does not write the per-piece UI phases.** For Figma-sourced frontends, the UI plan (design system → primitives → components → layouts → views×breakpoint) is produced by `/dev:figma-refresh-plan` from the ledger — it is the single source of UI plans. `/plan`'s job for the frontend is to resolve the **mapping + design-system spec** (above) and to plan the **non-UI technical groundwork** (env, framework, routing, component architecture, build/`./do` changes). After `/plan`, the order is: `/dev:figma-refresh-plan` (pull + ledger + UI plan) → `/dev:implement`.
+
+For reference, the dependency order `/dev:figma-refresh-plan` uses is bottom-up: design system first (theme/tokens — nothing can reference a token until it exists), then primitives (with a browseable preview), then components → layouts → views. Components, layouts, and views are all responsive, mapped across their breakpoints.
 
 **Re-check all five levels on every planning pass.** A project is never "done" at the lower levels. Every time you plan a frontend feature, sweep all five — design system, primitives, components, layouts, views — for additions and changes. The design system and primitives change rarely, but new components and pages are constantly added or modified, and a new component may require a new primitive or token. Do not assume lower levels are frozen; explicitly confirm whether this feature touches each level and include phases accordingly. (`/dev:figma-refresh-plan` enforces the same sweep automatically via the ledger, but only for pieces present in the mapping — so keep the mapping current here when new pieces appear.)
 
@@ -158,16 +160,17 @@ will ignore work already done.
      design at each breakpoint?
 3. **Classify each piece**: `matches` (already correct) / `refactor` (e.g.
    hardcoded → token, restructure) / `rebuild` / `missing`. Record this
-   classification — it drives both the plan phases and the ledger seed.
-4. **Write the remediation as plan phases**, bottom-up: normalize the design
-   system first (extract hardcoded values to tokens), then primitives + preview,
-   then components/layouts/views. `matches` pieces get no phase.
-5. **Seed the ledger:** the pieces classified `matches` are handed to
-   `/dev:figma-refresh-plan` to seed as `implemented` (with their current hash);
-   everything else stays `to-implement`. Record the `matches` list in the plan so
-   the refresh can seed from it (see that command's "Adoption seeding").
+   classification — it drives the ledger seed.
+4. **Record the `matches` list in the plan** (plus any non-UI groundwork that's
+   missing, as normal phases). Do NOT write the per-piece UI remediation phases
+   here — `/dev:figma-refresh-plan` writes those from the seeded ledger (every
+   `refactor` / `rebuild` / `missing` piece is `to-implement`, so it lands in the
+   UI plan automatically; `matches` pieces are seeded `implemented` and get no
+   phase).
 
-After this one-time pass the project is on the normal lifecycle.
+Then run `/dev:figma-refresh-plan`: it seeds the ledger from the `matches` list,
+pulls the design, and writes the UI remediation plan. After this one-time pass
+the project is on the normal lifecycle.
 
 If the feature has no frontend, skip this step and omit the UI/UX Spec from the plan.
 

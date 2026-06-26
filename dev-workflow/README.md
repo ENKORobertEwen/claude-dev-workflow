@@ -70,7 +70,7 @@ Frontend phases are built in **frontend mode**: the implementation sub-agent inv
 
 Keep a Figma-sourced design and the code in sync. The command:
 1. Pulls the current design via the Figma MCP (Code Connect for component identity, design context, variables)
-2. Maintains a per-piece **status ledger** (`product/design/<plan-slug>/status.json`) tracking which pieces — tokens, primitives, components, layouts, views per breakpoint — are implemented against the current design and which have drifted
+2. Maintains a per-piece **status ledger** (`product/design/<plan-slug>/status.json`) tracking which pieces — tokens, primitives, components, layouts, views per breakpoint — are implemented against the current design and which have drifted. Drift is detected by a **deterministic hash** computed by a committed reference script (`product/design/bin/ledger-hash.mjs`) over a stable `get_metadata`-derived descriptor — so the same design hashes identically across sessions. The algorithm is versioned (`hashSpecVersion`); a version change triggers a controlled re-baseline (carrying baselines and acceptances forward) instead of false drift. Requires Node.js.
 3. Writes design files (`tokens.json` in W3C DTCG format, `context.md`, `source.md`)
 4. Commits a dedicated design snapshot (git history is the diff substrate)
 

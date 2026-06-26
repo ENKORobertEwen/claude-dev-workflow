@@ -210,6 +210,12 @@ Do NOT touch the acceptance fields (`acceptedHash` / `acceptedBy` /
 `awaiting-acceptance` until a human signs off via `/dev:figma-accept`. Passing
 the automated visual review does not accept the piece.
 
+Do NOT recompute hashes here. Copy the `currentHash` that `/dev:figma-refresh-plan`
+already computed (via its committed `ledger-hash.mjs` reference script) into
+`lastImplementedHash`. Leave `hashSpecVersion` untouched — only
+`/dev:figma-refresh-plan` produces hashes and migrates the spec, so the ledger
+stays internally consistent.
+
 **d) Create commit**
 
 Once verification passes, YOU create the commit:

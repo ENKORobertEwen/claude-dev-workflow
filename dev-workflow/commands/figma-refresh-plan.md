@@ -65,7 +65,10 @@ Figma file, report that `/dev:plan` must establish it first, and stop.
 - **Code Connect** is used for component identity where mappings exist (requires
   the project's Figma Organization/Enterprise plan with a Dev seat). Where a
   component is not mapped in Code Connect, fall back to the plan's confirmed
-  mapping.
+  mapping. Code Connect is optional and commonly empty — never required.
+- **Node.js** must be available — the deterministic ledger hash runs through the
+  committed `product/design/bin/ledger-hash.mjs` script (step 4). If `node` is
+  unavailable, stop with a clear message rather than improvising hashes.
 
 ## Process
 
@@ -85,13 +88,21 @@ early-out. If it changed (or there is no prior snapshot), continue.
 
 Using the Figma MCP, for the mapped nodes:
 
-- `get_code_connect_map` — authoritative Figma→code identity for mapped
-  components. Record the code target for each mapped piece.
-- `get_design_context` (and node subtrees) — structure, layout, code hints per
-  node. This is also the source for the per-node hash (step 4).
+- `get_metadata` — per mapped node: `id`, `name`, `type`, `width`, `height`, and
+  variant properties (for component sets). **This is the source for the
+  structural hash (step 4).** It is chosen over `get_design_context` because it
+  is stable across runs — it contains only ids, names, sizes, and variant
+  structure, none of the volatile content that breaks hashing.
+- `get_design_context` (and node subtrees) — structure, layout, code hints, used
+  ONLY as reference material for the implementer (written to `context.md`).
+  **Never used for hashing:** its output is unstable run-to-run (it embeds a
+  screenshot, freshly *generated* reference code, asset/download URLs, and
+  absolute x/y canvas positions), so two pulls of an unchanged design produce
+  different bytes.
 - `get_variable_defs` — design tokens (colors, typography, spacing, radii).
-- `get_metadata` — page/frame names and sizes (used only as a cross-check
-  against the plan's mapping; the mapping itself is authoritative).
+  Source for token-piece hashes (step 4).
+- `get_code_connect_map` — Figma→code identity for mapped components. **Optional**
+  — commonly empty; never required for hashing or drift detection.
 
 ### 3. Materialize the design files
 
@@ -125,40 +136,200 @@ Using that convention and the spec's **responsive scaling** rules:
 If the spec defines no responsive rule for a family, keep its named tokens
 as-is and report it as a gap rather than guessing a scaling behavior.
 
-### 4. Compute per-piece hashes and refresh the ledger
+### 4. Compute per-piece hashes (deterministic)
 
-For each logical piece in the mapping, compute a stable hash over its node's
-serialized design JSON from `get_design_context` (a SHA-256 over the
-canonicalized node properties — layout, styles, token references, children
-structure). This is the change-detection primitive, because Figma has no native
-per-node version.
+Figma has no per-node version, so change detection relies on a per-piece
+SHA-256 hash. **This hash MUST be byte-identical across sessions, runs, and MCP
+response ordering** — otherwise an unchanged design reads as drift and the
+baseline is destroyed. Determinism is therefore not described in prose and
+re-derived each run; it is produced by a committed reference script that is the
+single source of truth.
 
-Then update `status.json`:
+#### 4.1 The reference hash script (normative)
+
+Current hash spec: **`hashSpecVersion: 1`** (`hashSpec: "node-metadata-structural-v1"`).
+
+On every run, ensure `product/design/bin/ledger-hash.mjs` exists with **exactly**
+the content below; if it is missing, materialize it (write it) and commit it. It
+requires Node.js (ubiquitous in web/frontend projects); if `node` is unavailable,
+stop with a clear message — do not fall back to ad-hoc hashing.
+
+```js
+#!/usr/bin/env node
+// ledger-hash.mjs — normative ledger hash for the dev plugin's design ledger.
+// hashSpecVersion: 1  (hashSpec: node-metadata-structural-v1)
+//
+// Reads ONE JSON object from stdin and prints "sha256:<hex>" of its canonical
+// form. This script is the single source of truth for the hash: any session,
+// run, or model that feeds the same object gets the same hash.
+//
+// Canonical form (deterministic, order-independent):
+//   - objects: keys sorted ascending by Unicode code point; serialized as
+//     {"k":canon(v),...} with no insignificant whitespace.
+//   - arrays: each element canonicalized, the resulting strings sorted ascending;
+//     serialized as [a,b,...]. Input array order is therefore irrelevant
+//     (robust against MCP response ordering).
+//   - strings/booleans/null: JSON.stringify (standard JSON escaping).
+//   - numbers: callers MUST pre-format size numbers as fixed-precision strings
+//     (see the command doc). Raw numbers are serialized via JSON.stringify and
+//     are only used for values that come byte-stable from the MCP (token values).
+import { createHash } from "node:crypto";
+
+function cmpCodePoint(a, b) {
+  for (let i = 0; ; i++) {
+    const ca = a.codePointAt(i);
+    const cb = b.codePointAt(i);
+    if (ca === undefined && cb === undefined) return 0;
+    if (ca === undefined) return -1;
+    if (cb === undefined) return 1;
+    if (ca !== cb) return ca - cb;
+  }
+}
+
+function canon(v) {
+  if (Array.isArray(v)) {
+    const parts = v.map(canon);
+    parts.sort();
+    return "[" + parts.join(",") + "]";
+  }
+  if (v && typeof v === "object") {
+    const keys = Object.keys(v).sort(cmpCodePoint);
+    return "{" + keys.map((k) => JSON.stringify(k) + ":" + canon(v[k])).join(",") + "}";
+  }
+  return JSON.stringify(v);
+}
+
+let input = "";
+process.stdin.setEncoding("utf8");
+process.stdin.on("data", (d) => (input += d));
+process.stdin.on("end", () => {
+  const obj = JSON.parse(input);
+  const hex = createHash("sha256").update(Buffer.from(canon(obj), "utf8")).digest("hex");
+  process.stdout.write("sha256:" + hex);
+});
+```
+
+Invoke it once per piece: build the piece's hash-input object (below), pipe it to
+`node product/design/bin/ledger-hash.mjs`, and record the printed `sha256:...`
+as the piece's `currentHash`.
+
+#### 4.2 Building the hash input per piece
+
+**Visual pieces** (`primitive` / `component` / `layout` / `view`) — from
+`get_metadata` only. For each mapped Figma node build a node descriptor with
+EXACTLY these fields and nothing else:
+
+```json
+{
+  "id":   "<node id in colon form, e.g. 86:2628>",
+  "name": "<node name>",
+  "type": "<node type, e.g. COMPONENT_SET, COMPONENT, FRAME>",
+  "w":    "<width  as a string, fixed 2 decimals, e.g. 120.00>",
+  "h":    "<height as a string, fixed 2 decimals, e.g. 40.00>",
+  "variants": { "<axisName>": ["<value>", ...], ... }
+}
+```
+
+- `id`: normalize to colon form (`86:2628`, never `86-2628`).
+- `w` / `h`: format the metadata number to **fixed 2 decimals as a string**
+  (e.g. `375` → `"375.00"`) — this removes float-representation ambiguity. Never
+  pass raw numbers for sizes.
+- `variants`: only for component sets — a map of variant axis name → its values.
+  Include **both** the axis names and their values. Use `{}` when there are no
+  variants. The script sorts axis names and the value arrays, so input order does
+  not matter.
+- EXCLUDE everything else: x/y position, fills/strokes, children geometry,
+  screenshots, generated code, asset URLs. None of it is in `get_metadata`, which
+  is exactly why `get_metadata` is the source.
+
+The piece's hash input is `{ "nodes": [ <descriptor>, ... ] }`. A piece that
+maps to several nodes (e.g. one logical screen across frames) lists all their
+descriptors; the script sorts the array, so a fixed delimiter or manual ordering
+is unnecessary — drop them all in.
+
+**Token pieces** (`token` level) — from the DTCG `tokens.json` you wrote in
+step 3. The hash input is `{ "tokens": <the token group's DTCG subtree> }` (the
+exact object for that group, `$value`/`$type`/`$description` included). The
+script's canonicalization (recursively sorted keys, no whitespace) makes this
+byte-exact; token values come byte-stable from `get_variable_defs`.
+
+#### 4.3 Worked example (reproducible)
+
+Button component, node `86:2628`. Suppose `get_metadata` yields name `Button`,
+type `COMPONENT_SET`, width `120`, height `40`, variant axes `Size` =
+{sm, md, lg} and `State` = {default, hover, disabled}. The hash input is:
+
+```json
+{"nodes":[{"id":"86:2628","name":"Button","type":"COMPONENT_SET","w":"120.00","h":"40.00","variants":{"Size":["lg","md","sm"],"State":["default","disabled","hover"]}}]}
+```
+
+Canonical form produced by the script:
+
+```
+{"nodes":[{"h":"40.00","id":"86:2628","name":"Button","type":"COMPONENT_SET","variants":{"Size":["lg","md","sm"],"State":["default","disabled","hover"]},"w":"120.00"}]}
+```
+
+SHA-256 → `sha256:3ac8e91181ab4fdba92c0e10932ca009b001aa69a65e0376bf939b0057917052`.
+
+Feeding the same node with its keys and variant arrays in any other order yields
+the identical hash. (Substitute the real `get_metadata` values for the live node;
+the *method* is what reproduces.)
+
+### 4.4 Refresh the ledger (drift detection, gated by hash spec)
+
+First read `status.json`'s top-level `hashSpecVersion`.
+
+**If it is absent, or differs from the current spec (1)** — the ledger was
+hashed with an unknown/older algorithm whose values are not comparable. Do a
+controlled **re-baseline**, NEVER false drift:
+
+1. Recompute `currentHash` for every piece with the current script.
+2. For every piece that is `implemented` (or a legacy `adoptionSeed: true` piece,
+   or any piece with a non-null `lastImplementedHash`): set
+   `lastImplementedHash = currentHash`. Carrying the baseline forward — an
+   algorithm change is not a design change.
+3. **Acceptance carry-forward:** for each such piece, if the stored
+   `acceptedHash == lastImplementedHash` *under the old values* (i.e. it was
+   accepted before the migration), set `acceptedHash = currentHash` too, so the
+   piece stays `accepted`. Testers are not forced to re-accept unchanged UI just
+   because of an internal algorithm change. Pieces that were not accepted keep
+   their `acceptedHash` (now ≠ the new `lastImplementedHash` → `awaiting-acceptance`,
+   correctly). This equality check uses the two stored OLD values, so it works
+   even though the old algorithm itself is unrecoverable.
+4. Set top-level `hashSpecVersion = 1` and `hashSpec = "node-metadata-structural-v1"`.
+5. Commit (`Migrate design ledger to hashSpec v1`). **Write NO UI plan this run**
+   — a migration is not drift. Report: *"Ledger migrated to hashSpec v1 — N
+   pieces re-baselined, M acceptances carried forward. Re-run
+   `/dev:figma-refresh-plan` to detect real drift and plan any genuinely open
+   pieces."* Then stop.
+
+This is the only safe behavior when the old hashes are not comparable: assume the
+current design equals the last-implemented one and re-baseline. A genuine design
+change that happens to coincide with the migration is caught on the next run
+(normal drift, below) — never silently turned into a bogus rework plan.
+
+**If `hashSpecVersion` matches the current spec (1)** — normal drift detection:
 
 - **New piece** (not in the ledger): add it with `status: "to-implement"` and
-  `lastImplementedHash: null` — **unless** it is on the plan's adoption `matches`
-  list (see "Adoption seeding" below), in which case seed it as `implemented`
-  with `lastImplementedHash` set to its current hash.
-- **Direct change** (current hash ≠ `lastImplementedHash`): set
+  `lastImplementedHash: null` — unless it is on the plan's adoption `matches`
+  list (see "Adoption seeding"), in which case seed it `implemented` with
+  `lastImplementedHash = currentHash`.
+- **Direct change** (`currentHash != lastImplementedHash`): set
   `status: "to-implement"`.
-- **Unchanged** (current hash == `lastImplementedHash`): leave
-  `status: "implemented"`.
-- **Soft cascade**: after the direct changes are marked, for every piece that
-  (transitively) `dependsOn` a piece now flagged `to-implement`, set its status
-  to `to-review` — *unless* it is itself directly changed (then `to-implement`
-  wins). `to-review` means "a dependency changed; a human/implementer must
-  decide whether rework is actually needed" (well-built frontends pass tokens
-  through, so a token change often needs no per-view rework).
+- **Unchanged** (`currentHash == lastImplementedHash`): leave `implemented`.
+- **Soft cascade**: after direct changes are marked, for every piece that
+  (transitively) `dependsOn` a piece now `to-implement`, set its status to
+  `to-review` — unless it is itself directly changed (`to-implement` wins).
 
-Dependency edges (`dependsOn`) come from instance → main-component references
-(a view/component depends on the primitives/components it instantiates) and from
-token references (a primitive/component depends on the tokens it uses). Build
-them from the pulled design context.
+Dependency edges (`dependsOn`) come from instance → main-component references and
+from token references. Build them from the pulled metadata/context.
 
 #### `status.json` schema
 
 ```json
 {
+  "hashSpecVersion": 1,
+  "hashSpec": "node-metadata-structural-v1",
   "figmaFileKey": "abc123",
   "figmaUrl": "https://www.figma.com/design/abc123/...",
   "fileVersion": "987654321",
@@ -182,6 +353,10 @@ them from the pulled design context.
 }
 ```
 
+- `hashSpecVersion` / `hashSpec`: which hash algorithm produced the stored
+  hashes. The command compares this to its current spec; a mismatch (or absence)
+  triggers the controlled re-baseline in step 4.4, never false drift. Bump these
+  together whenever the canonicalization changes.
 - `level`: one of `token`, `primitive`, `component`, `layout`, `view`.
 - `breakpoint`: `desktop` / `tablet` / `mobile` for any piece that has
   breakpoint-specific variants — **views, layouts, AND components** (components
@@ -213,7 +388,14 @@ This makes the ledger reflect reality from the start: already-correct pieces are
 not re-flagged, and only the `refactor` / `rebuild` / `missing` pieces show as
 open. Pieces not on the list follow the normal rules. Adoption seeding applies
 only on the first build for that plan; afterwards the project is on the normal
-lifecycle.
+lifecycle. Mark each seeded piece `adoptionSeed: true`.
+
+**Back-compat / legacy ledgers.** A ledger written before hash specs existed has
+no `hashSpecVersion` (and may carry `adoptionSeed: true` pieces or hashes from
+the old, unrecoverable prose method). Do **not** compare those hashes — the
+absent `hashSpecVersion` routes the next run through the step 4.4 re-baseline,
+which recomputes with the current script and carries baselines and acceptances
+forward. Such pieces are never treated as drift.
 
 ### 5. Write the UI plan from the ledger
 
@@ -326,6 +508,8 @@ This command is headless where possible. Predefined behaviors:
 | No Figma reference in plan / no plan and no URL | Report "nothing to refresh". Stop. |
 | No mapping yet (`/dev:plan` not run for this Figma file) | Report that `/dev:plan` must establish the mapping first. Stop. This is the ONLY case that points back to `/dev:plan`. |
 | Component not mapped in Code Connect | Use the plan's confirmed fallback mapping for identity. |
+| `status.json` has no `hashSpecVersion`, or it differs from the current spec (legacy / `adoptionSeed` / null hashes) | Controlled re-baseline (step 4.4): recompute with the current script, carry baselines + accepted pieces forward, set `hashSpecVersion`, commit "migrated", write NO plan, point to a re-run. NEVER false drift. |
+| `node` unavailable for the reference hash script | Stop with a clear message. Do NOT fall back to ad-hoc/prose hashing. |
 | Open pieces exist (first build or later diff) | Pull + ledger + write the UI plan in `product/plans/todo/` + commit. Point to `/dev:implement`. |
 | Nothing open (all implemented, unchanged) | Report "nothing to do". No plan; no commit unless the snapshot itself changed. |
 | Ad-hoc free URL, no plan | Raw snapshot under `product/design/_adhoc/`. No ledger, no plan. |
@@ -340,12 +524,22 @@ This command is headless where possible. Predefined behaviors:
    not write per-piece UI phases. The only no-plan case is nothing open.
 3. **The mapping is established in `/dev:plan`, consumed here.** Do not invent or
    re-resolve the Figma-to-piece mapping in this command.
-3. **Figma is the source of truth** for sourced designs; deviations are reported,
+4. **Deterministic hashing only.** Hashes come exclusively from the committed
+   `ledger-hash.mjs` reference script over the pinned `get_metadata`-derived
+   descriptor (visual pieces) or DTCG subtree (token pieces). Never hash
+   `get_design_context` output, never improvise a canonicalization, never compute
+   a hash by hand. Identical design ⇒ identical hash, across sessions and MCP
+   ordering.
+5. **Never false drift on a spec change.** If `hashSpecVersion` is absent or
+   differs, re-baseline (step 4.4) — recompute, carry baselines + acceptances
+   forward, report "migrated," write no plan. Bump `hashSpecVersion` whenever the
+   canonicalization changes.
+6. **Figma is the source of truth** for sourced designs; deviations are reported,
    not applied.
-4. **Per-breakpoint granularity** for views, layouts, AND components (all are
+7. **Per-breakpoint granularity** for views, layouts, AND components (all are
    responsive); only the changed breakpoint flips.
-5. **Soft cascade**: direct change → `to-implement`; dependents → `to-review`.
-6. **No no-op commits.** Skip the commit when nothing changed.
-7. **Tokens in DTCG format.** Generate `tokens.json` as W3C DTCG even though the
-   project does not use Tokens Studio, for interop.
-8. **No screenshots stored.** Visual checking happens live in `/dev:implement`.
+8. **Soft cascade**: direct change → `to-implement`; dependents → `to-review`.
+9. **No no-op commits.** Skip the commit when nothing changed.
+10. **Tokens in DTCG format.** Generate `tokens.json` as W3C DTCG even though the
+    project does not use Tokens Studio, for interop.
+11. **No screenshots stored.** Visual checking happens live in `/dev:implement`.

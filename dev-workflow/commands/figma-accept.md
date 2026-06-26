@@ -30,6 +30,16 @@ triggers a rebuild produces a new hash — so the piece automatically returns to
 `awaiting-acceptance` and must be re-accepted. The tester never silently signs
 off on a stale version.
 
+**Hash-spec migrations do not reopen acceptance.** Hashes are produced solely by
+`/dev:figma-refresh-plan` via its committed `ledger-hash.mjs` reference script.
+If that script's algorithm is versioned up, the stored hash representation
+changes without any real design change; `/dev:figma-refresh-plan` re-baselines
+the ledger and **carries accepted pieces forward** (migrates `acceptedHash`
+alongside `lastImplementedHash`) so testers are not asked to re-accept unchanged
+UI for a purely internal reason. Only a genuine design change reopens acceptance.
+This command never computes or migrates hashes itself — it only copies
+`lastImplementedHash` into `acceptedHash` on sign-off.
+
 ## Input
 
 Determine the ledger from the current plan (its `product/design/<plan-slug>/`).

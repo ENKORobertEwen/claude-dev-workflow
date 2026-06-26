@@ -3,8 +3,10 @@
 **Status:** Implemented. v2.9.0 added commands/figma-refresh-plan.md +
 plan.md/implement.md reconciliation; v2.10.0 added commands/figma-accept.md
 (human acceptance dimension); v2.11.0 corrected the lifecycle to plan → refresh
-→ implement and made figma-refresh-plan the single UI-plan source. Full scope.
-**Date:** 2026-06-24 (acceptance 2026-06-26; lifecycle correction 2026-06-26)
+→ implement and made figma-refresh-plan the single UI-plan source; v2.12.0 made
+the ledger hash deterministic (committed reference script, `get_metadata` source,
+`hashSpecVersion` + controlled re-baseline). Full scope.
+**Date:** 2026-06-24 (acceptance + lifecycle 2026-06-26; deterministic hash 2026-06-26)
 
 > **Form:** This is a **command** (`/dev:figma-refresh-plan`,
 > `commands/figma-refresh-plan.md`), not a skill — consistent with the plugin
@@ -90,11 +92,18 @@ and only build the genuinely missing glue.
   generates `tokens.json` itself from `get_variable_defs`, written in **DTCG
   format** (`$value`/`$type`/`$description`) for interop and a possible later
   switch to a Tokens-Studio git source.
-- **Per-node change detection is DIY.** Figma exposes only **file-level**
-  `version`/`lastModified` — there is NO per-node version/hash. So we compute
-  our **own per-node hash** from the node JSON (`get_design_context` / node
-  subtree), gated by the file-level `version` as a cheap "did anything change at
-  all" early-out.
+- **Per-node change detection is DIY — and MUST be deterministic.** Figma exposes
+  only **file-level** `version`/`lastModified` — no per-node version/hash. So we
+  compute our own per-piece hash, gated by the file-level `version` as a cheap
+  early-out. Critically, the hash is produced by a **committed reference script**
+  (`product/design/bin/ledger-hash.mjs`), not by prose a model re-interprets each
+  run — otherwise identical designs hash differently across sessions and the
+  baseline is destroyed. Input source is **`get_metadata`** (stable: id, name,
+  type, size, variant structure), explicitly NOT `get_design_context` (whose
+  output carries screenshots, generated code, asset URLs, and x/y positions that
+  vary run-to-run). The algorithm is versioned (`hashSpecVersion`); a version
+  mismatch triggers a controlled re-baseline, never false drift. See the command
+  doc's step 4 for the byte-exact contract + worked example.
 - **The status ledger driving an implement loop is a genuine gap** — no
   off-the-shelf tool (Builder.io Fusion, Anima, Locofy, Supernova, zeroheight)
   maintains a git-native per-piece implemented-vs-current ledger. This is the
@@ -161,8 +170,9 @@ is a primitive). This is resolved once, with the human, during `/plan` step 8:
    URL for ad-hoc use).
 2. Cheap gate: compare file-level `version`; if unchanged, report "no changes"
    and stop.
-3. Pull fresh: Code Connect map, `get_design_context` / node subtrees,
-   `get_variable_defs`, `get_metadata`.
+3. Pull fresh: `get_metadata` (hash source + structure), `get_variable_defs`
+   (tokens), `get_design_context` (reference material for the implementer only,
+   NOT hashed), optional `get_code_connect_map`.
 4. Materialize design files under `product/design/<plan-slug>/`:
    - `source.md` — Figma URL, node IDs, file version, fetched-at
    - `context.md` — design context (structure/layout/code hints)
@@ -310,7 +320,9 @@ After this one-time pass the project is on the normal lifecycle.
 | Mapping resolution | In `/plan` step 8: Claude proposes, user confirms; explicit ignore list |
 | Tokens | Self-generated from `get_variable_defs`, DTCG format (no Tokens Studio) |
 | Responsive tokens | Contract = Figma naming convention + per-project scaling rule (fluid/stepped) recorded in the UI/UX Spec; fluid derives `clamp()` tokens, stepped keeps named tokens + per-breakpoint mapping |
-| Hash source | Self-computed per-node hash from node JSON, gated by file `version` (no native per-node hash exists) |
+| Hash source | `get_metadata`-derived structural descriptor (id/name/type/size/variants), NOT `get_design_context`; gated by file `version` |
+| Hash determinism | Committed `ledger-hash.mjs` reference script (sorted keys, sorted arrays, fixed-precision sizes) is the single source of truth — not prose. Identical design ⇒ identical hash across sessions/MCP ordering |
+| Hash versioning | `hashSpecVersion` in status.json; absent/mismatch ⇒ controlled re-baseline (carry baselines + accepted pieces forward), never false drift; v2.10.0 ledgers (unrecoverable prose hashes) migrate automatically |
 | Ledger location | `product/design/<plan-slug>/status.json`, one per plan |
 | Commit style | Dedicated snapshot commit, separate from phase commits; skip no-op |
 | Files committed | `tokens.json`, `context.md`, `source.md`, `status.json` (no screenshots) |

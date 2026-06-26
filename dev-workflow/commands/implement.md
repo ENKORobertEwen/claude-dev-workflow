@@ -205,6 +205,11 @@ set back to `implemented` (hash updated to current). This is what makes the next
 `/dev:figma-refresh-plan` diff meaningful. Stage `status.json` with the phase
 commit.
 
+Do NOT touch the acceptance fields (`acceptedHash` / `acceptedBy` /
+`acceptedAt`). Implementation is not acceptance — the piece becomes
+`awaiting-acceptance` until a human signs off via `/dev:figma-accept`. Passing
+the automated visual review does not accept the piece.
+
 **d) Create commit**
 
 Once verification passes, YOU create the commit:
@@ -292,6 +297,15 @@ The application is running and can be tested at:
 ## Known UI Issues
 
 [Only if the visual review loop ended with unresolved UI issues on any frontend phase. List them as a checklist of follow-ups. Omit this section entirely if there are none.]
+
+## Acceptance
+
+[Only for Figma-sourced frontend work. List each implemented piece as an unchecked box with the live URL, for a tester to sign off:]
+
+- [ ] `login.view.mobile` — review at [live URL] and accept
+- [ ] `card.component.desktop` — review at [live URL] and accept
+
+Tick a box once you've reviewed and accept that piece on the live URL. Acceptance is tracked in the design ledger — run `/dev:figma-accept --from-pr <this PR number>` to sync the checked items. **Acceptance does NOT block merging** — open items remain visible as `awaiting-acceptance` and can be accepted later.
 ```
 
 **The "Live URLs" section is mandatory.** Always include it using the URLs determined in step 5. Never omit this section — even if no URL could be determined, include the section with a note that the URL needs to be checked manually.

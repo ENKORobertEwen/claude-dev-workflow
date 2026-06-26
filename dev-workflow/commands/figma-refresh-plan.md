@@ -168,7 +168,10 @@ them from the pulled design context.
       "lastImplementedHash": "sha256:...",
       "currentHash": "sha256:...",
       "status": "to-implement",
-      "dependsOn": ["button.primitive", "color.primary.token"]
+      "dependsOn": ["button.primitive", "color.primary.token"],
+      "acceptedHash": null,
+      "acceptedBy": null,
+      "acceptedAt": null
     }
   ]
 }
@@ -182,7 +185,15 @@ them from the pulled design context.
   breakpoint is a separate piece, so only the changed breakpoint flips.
 - `codeTarget`: from Code Connect where mapped, else the plan's fallback mapping,
   else `null`.
-- `status`: `implemented` | `to-implement` | `to-review`.
+- `status`: `implemented` | `to-implement` | `to-review`. This is the
+  *implementation* status only.
+- `acceptedHash` / `acceptedBy` / `acceptedAt`: the human sign-off record, set by
+  `/dev:figma-accept` — a separate dimension from `status`. A piece is **accepted**
+  only when `acceptedHash == lastImplementedHash`. A built piece whose
+  `acceptedHash != lastImplementedHash` is **awaiting-acceptance**. Acceptance is
+  hash-bound, so any rebuild after a design change re-opens it automatically.
+  This command never sets acceptance; it only preserves existing acceptance
+  records and recomputes whether they still match.
 
 #### Adoption seeding (existing / in-progress projects)
 
@@ -239,6 +250,10 @@ plan format (the same format `/dev:plan` produces). Specifics:
   *"Review only — a dependency changed; confirm this piece still matches and
   re-implement only if needed."* The implementer decides; if no change is
   needed it just confirms and marks the ledger.
+- **Do NOT add phases for `awaiting-acceptance` pieces.** Those are built and
+  unchanged — there is nothing to rebuild; they are a human sign-off gap,
+  surfaced in the report and resolved via `/dev:figma-accept`, not the rework
+  plan.
 - Note in the plan overview which file version this rework targets and which
   pieces are `to-implement` vs `to-review`.
 
@@ -261,7 +276,8 @@ create a no-op commit).
 Print a concise summary:
 
 - File version pulled and fetched-at.
-- Counts: `to-implement`, `to-review`, `implemented`.
+- Counts: `to-implement`, `to-review`, `awaiting-acceptance` (built but not
+  signed off), `accepted`.
 - Whether a rework plan was written (and its path), or the "run /dev:plan"
   pointer for the first pull.
 - The design files path.

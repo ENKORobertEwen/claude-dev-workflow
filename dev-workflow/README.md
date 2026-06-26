@@ -80,6 +80,12 @@ The Figma mapping (which nodes are which logical pieces, per breakpoint, plus an
 
 **Adopting an in-progress project:** if you already have UI built (e.g. on an older flow), run `/plan` once as a base-straightening pass — it audits the existing code against the design across all five levels (design system, primitives, components, layouts, views), classifies each piece (matches / refactor / rebuild / missing), and writes the remediation. `/figma-refresh-plan` then seeds the ledger from the "matches" list so already-correct work isn't re-flagged. After that one-time pass the project is on the normal lifecycle.
 
+### `/figma-accept`
+
+Record **human acceptance** of implemented UI pieces. Building a piece and passing the automated visual review is not the same as a tester signing off, so acceptance is tracked as a separate dimension in the ledger (`acceptedHash` / `acceptedBy` / `acceptedAt`). A piece is `accepted` only when a tester signed off on exactly what's built; any later design change that triggers a rebuild re-opens acceptance automatically.
+
+Two channels: a CLI command (`/figma-accept <piece>`, `--all`, or `--from-pr <n>` to sync a PR's acceptance checklist) and the acceptance checklist that `/implement` puts in the PR body. Acceptance is **soft** — it never blocks merges or plan completion; unsigned pieces simply stay visible as `awaiting-acceptance` until accepted.
+
 ## Skills
 
 ### `verification-required`

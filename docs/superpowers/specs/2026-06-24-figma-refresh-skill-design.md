@@ -1,8 +1,9 @@
 # Figma Refresh Plan Command — Design
 
-**Status:** Implemented in plugin v2.9.0 (commands/figma-refresh-plan.md, plus
-plan.md/implement.md reconciliation). Full scope.
-**Date:** 2026-06-24
+**Status:** Implemented. v2.9.0 added commands/figma-refresh-plan.md +
+plan.md/implement.md reconciliation; v2.10.0 added commands/figma-accept.md
+(human acceptance dimension). Full scope.
+**Date:** 2026-06-24 (acceptance added 2026-06-26)
 
 > **Form:** This is a **command** (`/dev:figma-refresh-plan`,
 > `commands/figma-refresh-plan.md`), not a skill — consistent with the plugin
@@ -251,6 +252,25 @@ derivable, report it — never invent. Lives in `implement.md` frontend mode.
 - **Narrow judgment exception:** only genuinely unspecified visual micro-details
   (transition timing, undefined hover/focus, missing micro-copy).
 
+## Human acceptance (`/dev:figma-accept`)
+
+Building a piece and passing the automated visual review is not the same as a
+tester signing off. Acceptance is a **separate dimension** in the ledger, not a
+`status` value:
+
+- Per piece: `acceptedHash`, `acceptedBy`, `acceptedAt`.
+- A piece is **accepted** only when `acceptedHash == lastImplementedHash` (the
+  tester reviewed exactly what's built). Built but not signed off →
+  **awaiting-acceptance**. Hash-bound, so a rebuild after a design change
+  re-opens acceptance automatically.
+- `/dev:implement` sets `implemented` but never touches acceptance.
+- `/dev:figma-accept` records sign-off — two channels: a CLI command (explicit
+  pieces, `--all`, interactive, or `--from-pr <n>` to sync a PR's acceptance
+  checklist) and the acceptance checklist `/dev:implement` writes into the PR.
+- **Soft tracking:** acceptance never blocks merges or plan completion;
+  `awaiting-acceptance` pieces stay visible until accepted. The rework plan does
+  not include them (nothing to rebuild — it's a sign-off gap).
+
 ## Adopting an existing / in-progress project
 
 For a project already mid design-implementation (e.g. on an older flow), the
@@ -295,6 +315,7 @@ After this one-time pass the project is on the normal lifecycle.
 | Files committed | `tokens.json`, `context.md`, `source.md`, `status.json` (no screenshots) |
 | Invocation | `/dev:figma-refresh-plan` (plan-based, incl. first pull) + free Figma URL (ad-hoc, no ledger/plan) |
 | Figma vs frontend-design | Figma wins; deviations reported, not applied |
+| Human acceptance | Separate ledger dimension (`acceptedHash`/`By`/`At`), hash-bound; `/dev:figma-accept` via CLI + PR checklist; soft (never blocks) |
 
 ## Open / to resolve during planning
 

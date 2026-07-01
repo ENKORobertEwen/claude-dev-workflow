@@ -54,7 +54,7 @@ derivable, REPORT it — never invent.**
 - **Design system first.** Before building any primitive, component, or view, establish the design system from `tokens.json` (colors, spacing, text styles, radii) as the project's theme / CSS variables. Everything downstream references these — you cannot reference a token that does not exist yet. If this project has no theme layer yet, create it from the tokens as the first step.
 - **Tokens, not hardcoded values (strict).** Every color/space/typography/radius value MUST reference a token. A measured value that matches NO token is a deviation: report it in the summary/PR — do NOT silently hardcode a raw value (e.g. `15px`, `#3B82F6`).
 - **Responsive tokens by the recorded rule.** Apply typography and spacing across breakpoints exactly as the UI/UX Spec's responsive scaling rules say — never guess which size belongs at which breakpoint. For *stepped* families, apply the named token mapped to each breakpoint via media queries (e.g. `body-lg-regular` desktop → `body-md-regular` tablet → `body-sm-regular` mobile). For *fluid* families, use the derived `clamp()` token from `tokens.json` verbatim.
-- **Reuse mapped components.** If a piece has a `codeTarget` (from Code Connect or the plan's mapping in `status.json`), use or extend that component — do NOT build a parallel one. Respect dependency order: design system → primitives → components → layouts → views.
+- **Reuse mapped components.** If a piece has a `codeTarget` (from Code Connect or the plan's mapping in `product/design/status.json`), use or extend that component — do NOT build a parallel one. Respect dependency order: design system → primitives → components → layouts → views.
 - **Primitives second, with a browseable preview.** After the design system, build the primitives — and expose them on a browseable preview so they can be visually checked in isolation: Storybook stories if the project uses Storybook, otherwise a simple dev route/page (e.g. `/__design`) rendering each primitive in all its states. Add components to the same preview as you build them. This is what the visual-review loop checks for non-screen pieces. Build it when feasible for the project's setup; if genuinely not feasible, note why in the report.
 - **Layout = intent, not canvas coordinates.** Translate Figma auto-layout to flex/grid, semantic and fluid. Do NOT use absolute positioning or fixed x/y pixel coordinates from the Figma canvas. Only the breakpoints named in the UI/UX Spec / mapping — never invented ones.
 - **Components are responsive too.** Components, layouts, and views all have breakpoint-specific behavior — implement each across its mapped breakpoints (desktop/tablet/mobile), not just full pages. Build/check the responsive behavior of a component in the browseable preview.
@@ -197,12 +197,13 @@ This keeps any visual fixes folded into the same phase commit. The app may stay 
 
 **c3) Ledger write-back (Figma-sourced frontend phases only)**
 
-If the phase implemented Figma-sourced pieces tracked in
-`product/design/<plan-slug>/status.json`, update each implemented piece before
+If the phase implemented Figma-sourced pieces tracked in the global ledger
+`product/design/status.json`, update each implemented piece (by its
+`<source>:…` id) before
 committing: set its `lastImplementedHash` to its `currentHash` and its `status`
 to `implemented`. A `to-review` piece that turned out to need no change is also
 set back to `implemented` (hash updated to current). This is what makes the next
-`/dev:figma-refresh-plan` diff meaningful. Stage `status.json` with the phase
+`/dev:figma-refresh-plan` diff meaningful. Stage `product/design/status.json` with the phase
 commit.
 
 Do NOT touch the acceptance fields (`acceptedHash` / `acceptedBy` /
@@ -399,7 +400,7 @@ This command is fully headless. Every operational scenario has a predefined beha
 | Frontend phase: UI review returns UI ISSUES | Launch fix sub-agent (frontend mode), re-verify `./do check`, re-run UI review. Up to 3 review-fix cycles, then commit anyway and record remaining issues in the summary/PR. |
 | Frontend phase: app won't start for UI review | UI review sub-agent reports it could not render. Record as a known issue, proceed to commit. Do NOT block the pipeline. |
 | Phase has no `**Type:**` and isn't obviously UI | Treat as non-frontend: skip the visual review loop. |
-| Frontend phase is Figma-sourced but no design files / ledger exist (`product/design/<plan-slug>/status.json` missing — `figma-refresh-plan` was never run) | Full stop BEFORE that phase, once, with: "This plan is Figma-sourced — run `/dev:figma-refresh-plan` first to pull the design and create the ledger, then re-run `/dev:implement`." Do NOT improvise, do NOT proceed to guess the design, do NOT repeat the reminder. |
+| Frontend phase is Figma-sourced but the global ledger `product/design/status.json` has no matching pieces (`figma-refresh-plan` was never run for that source) | Full stop BEFORE that phase, once, with: "This plan is Figma-sourced — run `/dev:figma-refresh-plan` first to pull the design and create the ledger, then re-run `/dev:implement`." Do NOT improvise, do NOT proceed to guess the design, do NOT repeat the reminder. |
 | Implement finished; ledger written back | The ledger is current. Do NOT suggest running `figma-refresh-plan` afterward — it is not a cleanup step. The only follow-up to mention is `/dev:figma-accept` for human sign-off. |
 | `./do run` fails | Inform user of the error. Continue to PR creation — the failure is noted in the summary. |
 | Multiple plans in `product/plans/todo/` | Pick the one with the lowest plan number. |

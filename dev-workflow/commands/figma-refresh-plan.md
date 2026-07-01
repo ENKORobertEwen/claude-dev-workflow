@@ -118,7 +118,6 @@ Write into `product/design/sources/<source>/`:
 | `source.md` | Figma file key + URL, mapped node IDs, file `version`, fetched-at timestamp — the per-source metadata (no longer stored in the ledger) |
 | `context.md` | Design context per piece (structure/layout/code hints from `get_design_context`) |
 | `tokens.json` | Design tokens in **W3C DTCG format** (`$value` / `$type` / `$description`), generated from `get_variable_defs` — the raw Figma-named tokens plus any derived responsive tokens (see below) |
-| `status.json` | The per-piece ledger (see schema below) |
 
 Do **not** store screenshots — the `/dev:implement` visual-review loop captures
 live screenshots via Playwright when needed; stored Figma images bloat the repo
@@ -436,10 +435,8 @@ create a no-op commit).
 Print a concise summary:
 
 - File version pulled and fetched-at.
-- Counts: `to-implement`, `to-review`, `awaiting-acceptance` (built but not
-  signed off), `accepted`.
-- The open-piece overview (counts of `to-implement` / `to-review` /
-  `awaiting-acceptance` / `accepted`), printed to stdout — no plan is written.
+- Counts of `to-implement` / `to-review` / `awaiting-acceptance` (built but not
+  signed off) / `accepted`, printed to stdout — no plan is written.
 - The next step: run `/dev:plan` to select open pieces and produce the UI plan.
 - The design files path.
 
@@ -480,7 +477,7 @@ This command is headless where possible. Predefined behaviors:
 | Figma MCP unavailable | Report clearly. Stop. Do NOT guess design state. |
 | File version unchanged since last pull | Report "no changes". No commit. Stop. |
 | No Figma reference in plan / no plan and no URL | Report "nothing to refresh". Stop. |
-| No mapping yet (`/dev:plan` not run for this Figma file) | Report that `/dev:plan` must establish the mapping first. Stop. This is the ONLY case that points back to `/dev:plan`. |
+| No mapping yet (`/dev:plan` not run for this Figma file) | Report that `/dev:plan` must establish the mapping first. Stop. |
 | Component not mapped in Code Connect | Use the plan's confirmed fallback mapping for identity. |
 | `status.json` has no `hashSpecVersion`, or it differs from the current spec (legacy / `adoptionSeed` / null hashes) | Controlled re-baseline (step 4.4): recompute with the current script, carry baselines + accepted pieces forward, set `hashSpecVersion`, commit "migrated", write nothing but the migrated ledger, point to a re-run. NEVER false drift. |
 | `node` unavailable for the reference hash script | Stop with a clear message. Do NOT fall back to ad-hoc/prose hashing. |

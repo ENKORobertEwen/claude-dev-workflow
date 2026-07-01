@@ -304,13 +304,13 @@ controlled **re-baseline**, NEVER false drift:
 5. Commit (`Migrate design ledger to hashSpec v1`). **Write NO UI plan this run**
    — a migration is not drift. Report: *"Ledger migrated to hashSpec v1 — N
    pieces re-baselined, M acceptances carried forward. Re-run
-   `/dev:figma-refresh-plan` to detect real drift and plan any genuinely open
-   pieces."* Then stop.
+   `/dev:figma-refresh-plan` to detect real drift, then run `/dev:plan` to plan
+   any genuinely open pieces."* Then stop.
 
 This is the only safe behavior when the old hashes are not comparable: assume the
 current design equals the last-implemented one and re-baseline. A genuine design
 change that happens to coincide with the migration is caught on the next run
-(normal drift, below) — never silently turned into a bogus rework plan.
+(normal drift, below) — never silently flipped to `to-implement`/`to-review` as false drift.
 
 **If `hashSpecVersion` matches the current spec (1)** — normal drift detection:
 

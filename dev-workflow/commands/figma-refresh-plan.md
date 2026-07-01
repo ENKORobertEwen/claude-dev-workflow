@@ -95,15 +95,17 @@ Using the Figma MCP, for the mapped nodes:
 
 - `get_metadata` — per mapped node: `id`, `name`, `type`, `width`, `height`, and
   variant properties (for component sets). **This is the source for the
-  structural hash (step 4).** It is chosen over `get_design_context` because it
-  is stable across runs — it contains only ids, names, sizes, and variant
-  structure, none of the volatile content that breaks hashing.
+  structural fields of the hash (step 4).** It is chosen for those fields
+  because it is stable across runs — it contains only ids, names, sizes, and
+  variant structure, none of the volatile content that breaks hashing.
 - `get_design_context` (and node subtrees) — structure, layout, code hints, used
-  ONLY as reference material for the implementer (written to `context.md`).
-  **Never used for hashing:** its output is unstable run-to-run (it embeds a
-  screenshot, freshly *generated* reference code, asset/download URLs, and
-  absolute x/y canvas positions), so two pulls of an unchanged design produce
-  different bytes.
+  as reference material for the implementer (written to `context.md`), and the
+  source of the **bound-variable identifiers** in the descriptor's `tokens`
+  field (step 4.2). **Its volatile output is never hashed:** the screenshot,
+  freshly *generated* reference code, asset/download URLs, and absolute x/y
+  canvas positions vary run-to-run, so two pulls of an unchanged design produce
+  different bytes — only the stable bound-variable *identifiers* are extracted
+  into the hash, never that volatile content.
 - `get_variable_defs` — design tokens (colors, typography, spacing, radii).
   Source for token-piece hashes (step 4).
 - `get_code_connect_map` — Figma→code identity for mapped components. **Optional**
@@ -151,7 +153,7 @@ single source of truth.
 
 #### 4.1 The reference hash script (normative)
 
-Current hash spec: **`hashSpecVersion: 1`** (`hashSpec: "node-metadata-structural-v1"`).
+Current hash spec: **`hashSpecVersion: 2`** (`hashSpec: "node-metadata-structural-v2"`).
 
 On every run, ensure `product/design/bin/ledger-hash.mjs` exists with **exactly**
 the content below; if it is missing, materialize it (write it) and commit it. It
@@ -161,7 +163,7 @@ stop with a clear message — do not fall back to ad-hoc hashing.
 ```js
 #!/usr/bin/env node
 // ledger-hash.mjs — normative ledger hash for the dev plugin's design ledger.
-// hashSpecVersion: 1  (hashSpec: node-metadata-structural-v1)
+// hashSpecVersion: 2  (hashSpec: node-metadata-structural-v2)
 //
 // Reads ONE JSON object from stdin and prints "sha256:<hex>" of its canonical
 // form. This script is the single source of truth for the hash: any session,
@@ -219,9 +221,10 @@ as the piece's `currentHash`.
 
 #### 4.2 Building the hash input per piece
 
-**Visual pieces** (`primitive` / `component` / `layout` / `view`) — from
-`get_metadata` only. For each mapped Figma node build a node descriptor with
-EXACTLY these fields and nothing else:
+**Visual pieces** (`primitive` / `component` / `layout` / `view`) — structural
+fields from `get_metadata`, plus the bound-variable identifiers in `tokens` (see
+below). For each mapped Figma node build a node descriptor with EXACTLY these
+fields and nothing else:
 
 ```json
 {
@@ -230,7 +233,8 @@ EXACTLY these fields and nothing else:
   "type": "<node type, e.g. COMPONENT_SET, COMPONENT, FRAME>",
   "w":    "<width  as a string, fixed 2 decimals, e.g. 120.00>",
   "h":    "<height as a string, fixed 2 decimals, e.g. 40.00>",
-  "variants": { "<axisName>": ["<value>", ...], ... }
+  "variants": { "<axisName>": ["<value>", ...], ... },
+  "tokens": ["<bound variable identifier>", ...]
 }
 ```
 
@@ -242,9 +246,19 @@ EXACTLY these fields and nothing else:
   Include **both** the axis names and their values. Use `{}` when there are no
   variants. The script sorts axis names and the value arrays, so input order does
   not matter.
-- EXCLUDE everything else: x/y position, fills/strokes, children geometry,
-  screenshots, generated code, asset URLs. None of it is in `get_metadata`, which
-  is exactly why `get_metadata` is the source.
+- `tokens`: the **sorted set of design-variable identifiers this node BINDS**
+  (fills/text-styles/effects/spacing bound to a Figma variable) — identifiers
+  ONLY, never their values. This makes a token **rebinding** a structural change
+  (direct drift) while a token **value** change stays invisible here (it moves
+  only the token piece). Use `[]` when the node binds none. The script sorts it.
+  Source: bound-variable data from `get_design_context` (or the bindings in
+  `get_variable_defs`) — NOT `get_metadata`. If bindings cannot be pulled
+  reliably for a node, emit `[]` **consistently** (never partially) so an
+  unpullable binding never reads as drift.
+- EXCLUDE everything else: x/y position, fill/stroke **values**, children
+  geometry, screenshots, generated code, asset URLs. Bound-variable *identifiers*
+  are the one exception — captured via `tokens` above — but their **values** are
+  never included; a value lives only in the token piece.
 
 The piece's hash input is `{ "nodes": [ <descriptor>, ... ] }`. A piece that
 maps to several nodes (e.g. one logical screen across frames) lists all their
@@ -261,19 +275,21 @@ byte-exact; token values come byte-stable from `get_variable_defs`.
 
 Button component, node `86:2628`. Suppose `get_metadata` yields name `Button`,
 type `COMPONENT_SET`, width `120`, height `40`, variant axes `Size` =
-{sm, md, lg} and `State` = {default, hover, disabled}. The hash input is:
+{sm, md, lg} and `State` = {default, hover, disabled}, and `get_design_context`
+shows it binds the variables `color/bg-primary`, `color/text-on-primary`, and
+`radius/md`. The hash input is:
 
 ```json
-{"nodes":[{"id":"86:2628","name":"Button","type":"COMPONENT_SET","w":"120.00","h":"40.00","variants":{"Size":["lg","md","sm"],"State":["default","disabled","hover"]}}]}
+{"nodes":[{"id":"86:2628","name":"Button","type":"COMPONENT_SET","w":"120.00","h":"40.00","variants":{"Size":["lg","md","sm"],"State":["default","disabled","hover"]},"tokens":["color/bg-primary","color/text-on-primary","radius/md"]}]}
 ```
 
 Canonical form produced by the script:
 
 ```
-{"nodes":[{"h":"40.00","id":"86:2628","name":"Button","type":"COMPONENT_SET","variants":{"Size":["lg","md","sm"],"State":["default","disabled","hover"]},"w":"120.00"}]}
+{"nodes":[{"h":"40.00","id":"86:2628","name":"Button","tokens":["color/bg-primary","color/text-on-primary","radius/md"],"type":"COMPONENT_SET","variants":{"Size":["lg","md","sm"],"State":["default","disabled","hover"]},"w":"120.00"}]}
 ```
 
-SHA-256 → `sha256:3ac8e91181ab4fdba92c0e10932ca009b001aa69a65e0376bf939b0057917052`.
+SHA-256 → `sha256:fc7fec657d194e6111d2a28a6c937e87070f38cdf0f679b5ada1f079afc0f0ac`.
 
 Feeding the same node with its keys and variant arrays in any other order yields
 the identical hash. (Substitute the real `get_metadata` values for the live node;
@@ -283,7 +299,7 @@ the *method* is what reproduces.)
 
 First read `status.json`'s top-level `hashSpecVersion`.
 
-**If it is absent, or differs from the current spec (1)** — the ledger was
+**If it is absent, or differs from the current spec (2)** — the ledger was
 hashed with an unknown/older algorithm whose values are not comparable. Do a
 controlled **re-baseline**, NEVER false drift:
 
@@ -300,9 +316,9 @@ controlled **re-baseline**, NEVER false drift:
    their `acceptedHash` (now ≠ the new `lastImplementedHash` → `awaiting-acceptance`,
    correctly). This equality check uses the two stored OLD values, so it works
    even though the old algorithm itself is unrecoverable.
-4. Set top-level `hashSpecVersion = 1` and `hashSpec = "node-metadata-structural-v1"`.
-5. Commit (`Migrate design ledger to hashSpec v1`). **Write NO UI plan this run**
-   — a migration is not drift. Report: *"Ledger migrated to hashSpec v1 — N
+4. Set top-level `hashSpecVersion = 2` and `hashSpec = "node-metadata-structural-v2"`.
+5. Commit (`Migrate design ledger to hashSpec v2`). **Write NO UI plan this run**
+   — a migration is not drift. Report: *"Ledger migrated to hashSpec v2 — N
    pieces re-baselined, M acceptances carried forward. Re-run
    `/dev:figma-refresh-plan` to detect real drift, then run `/dev:plan` to plan
    any genuinely open pieces."* Then stop.
@@ -312,7 +328,7 @@ current design equals the last-implemented one and re-baseline. A genuine design
 change that happens to coincide with the migration is caught on the next run
 (normal drift, below) — never silently flipped to `to-implement`/`to-review` as false drift.
 
-**If `hashSpecVersion` matches the current spec (1)** — normal drift detection:
+**If `hashSpecVersion` matches the current spec (2)** — normal drift detection:
 
 - **New piece** (not in the ledger): add it with `status: "to-implement"` and
   `lastImplementedHash: null` — unless it is on the plan's adoption `matches`
@@ -322,18 +338,29 @@ change that happens to coincide with the migration is caught on the next run
   `status: "to-implement"`.
 - **Unchanged** (`currentHash == lastImplementedHash`): leave `implemented`.
 - **Soft cascade**: after direct changes are marked, for every piece that
-  (transitively) `dependsOn` a piece now `to-implement`, set its status to
-  `to-review` — unless it is itself directly changed (`to-implement` wins).
+  (transitively) `dependsOn` a **non-`token`** piece now `to-implement`, set its
+  status to `to-review` — unless it is itself directly changed (`to-implement`
+  wins). A `token`-level piece that is `to-implement` does **not** seed the
+  cascade. Consumers reference tokens by name and inherit a value change for free
+  (`var(--token)` / the named utility), so a token **value** change requires no
+  consumer code change and must not turn consumers red — only the token piece
+  itself is `to-implement` (regenerate the token layer). A token **binding**
+  change (a consumer now references a *different* token) is a change to the
+  consumer and is caught at the consumer's own hash (see 4.2), not via this
+  cascade.
 
 Dependency edges (`dependsOn`) come from instance → main-component references and
-from token references. Build them from the pulled metadata/context.
+from token references. Build them from the pulled metadata/context. Token edges
+are recorded for traceability but are **excluded as cascade seeds** (above) —
+component→component edges still cascade, because a dependency's *structural*
+change is the only thing that flips it to `to-implement` in the first place.
 
 #### `status.json` schema
 
 ```json
 {
-  "hashSpecVersion": 1,
-  "hashSpec": "node-metadata-structural-v1",
+  "hashSpecVersion": 2,
+  "hashSpec": "node-metadata-structural-v2",
   "pieces": [
     {
       "id": "login:view.mobile",
@@ -519,11 +546,12 @@ This command is headless where possible. Predefined behaviors:
 3. **The mapping is established in `/dev:plan`, consumed here.** Do not invent or
    re-resolve the Figma-to-piece mapping in this command.
 4. **Deterministic hashing only.** Hashes come exclusively from the committed
-   `ledger-hash.mjs` reference script over the pinned `get_metadata`-derived
-   descriptor (visual pieces) or DTCG subtree (token pieces). Never hash
-   `get_design_context` output, never improvise a canonicalization, never compute
-   a hash by hand. Identical design ⇒ identical hash, across sessions and MCP
-   ordering.
+   `ledger-hash.mjs` reference script over the pinned descriptor — `get_metadata`
+   structural fields plus bound-variable identifiers (visual pieces) — or the
+   DTCG subtree (token pieces). Never hash `get_design_context`'s volatile output
+   (screenshot, generated code, asset URLs, x/y), never improvise a
+   canonicalization, never compute a hash by hand. Identical design ⇒ identical
+   hash, across sessions and MCP ordering.
 5. **Never false drift on a spec change.** If `hashSpecVersion` is absent or
    differs, re-baseline (step 4.4) — recompute, carry baselines + acceptances
    forward, report "migrated," write no plan. Bump `hashSpecVersion` whenever the
@@ -532,7 +560,10 @@ This command is headless where possible. Predefined behaviors:
    not applied.
 7. **Per-breakpoint granularity** for views, layouts, AND components (all are
    responsive); only the changed breakpoint flips.
-8. **Soft cascade**: direct change → `to-implement`; dependents → `to-review`.
+8. **Soft cascade at the abstraction boundary**: a direct change to a
+   **non-`token`** piece flips its dependents to `to-review`; a `token`-value
+   change does **not** cascade (consumers inherit the value through the
+   variable). `to-implement` wins for a directly-changed piece.
 9. **No no-op commits.** Skip the commit when nothing changed.
 10. **Tokens in DTCG format.** Generate `tokens.json` as W3C DTCG even though the
     project does not use Tokens Studio, for interop.

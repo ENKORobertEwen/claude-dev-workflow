@@ -1,5 +1,38 @@
 # Changelog — dev plugin
 
+## 2.14.0 — Stop the drift cascade at the token abstraction boundary
+
+**Problem fixed:** the soft cascade in `/dev:figma-refresh-plan` flipped every
+(transitive) `dependsOn` consumer of a `to-implement` piece to `to-review`.
+Because token pieces hash over their values, a pure design-variable value change
+(e.g. a global font size) flipped the token piece and cascaded onto every
+consuming control/block/view. In a token-referencing codebase (`var(--token)`)
+consumers inherit the new value for free and need no code change — so the
+cascade produced only red noise and made the ledger unusable. It ignored the
+abstraction boundary the variables establish.
+
+**Principle:** a consumer becomes `to-review` only when a change could force it
+to change *code* — structure/interface/binding, not value. Values flow through
+the variable.
+
+**Changes:**
+- **Cascade:** `token`-level pieces are no longer a cascade seed. A token
+  **value** change moves only the token piece (`to-implement`, regenerate the
+  token layer); consumers stay `implemented`. Component→component edges still
+  cascade — a dependency's *structural* change is the only thing that makes it
+  `to-implement` in the first place. (Doc-only; no hash change for this part.)
+- **Hash basis (`hashSpec` v1 → v2):** the per-node descriptor gains a `tokens`
+  field — the sorted set of design-variable *identifiers* the node BINDS
+  (identifiers only, never values, sourced from `get_design_context`). This
+  makes a token **rebinding** (a consumer now references a *different* token) a
+  direct structural drift, while a token **value** change stays invisible in the
+  consumer's hash. The reference `ledger-hash.mjs` is field-agnostic and
+  unchanged; only the descriptor and the worked example's SHA move.
+
+**Migration (automatic, safe):** existing ledgers are `hashSpecVersion` 1 ≠ 2,
+so the next `/dev:figma-refresh-plan` routes them through the existing step-4.4
+re-baseline — baselines and acceptances carried forward, no false drift.
+
 ## 2.13.0 — Global design ledger
 
 **Problem fixed:** the design ledger was one-per-plan

@@ -10,7 +10,7 @@ as `awaiting-acceptance` until a tester accepts them here.
 
 ## The acceptance model
 
-Each piece in `product/design/<plan-slug>/status.json` carries, alongside its
+Each piece in the global ledger `product/design/status.json` carries, alongside its
 implementation fields, an acceptance record:
 
 - `acceptedHash` — the implemented hash a tester signed off on
@@ -42,8 +42,8 @@ This command never computes or migrates hashes itself — it only copies
 
 ## Input
 
-Determine the ledger from the current plan (its `product/design/<plan-slug>/`).
-Then determine which pieces to accept:
+Read the global ledger `product/design/status.json`. Then determine which pieces
+to accept (pieces are addressed by their `<source>:…` id):
 
 1. **Explicit pieces** — `/dev:figma-accept <pieceId> [<pieceId> …]`: accept
    exactly these.
@@ -59,7 +59,7 @@ Then determine which pieces to accept:
 
 ## Process
 
-1. Read `status.json`. Build the list of target pieces from the input.
+1. Read `product/design/status.json`. Build the list of target pieces from the input.
 2. For each target piece:
    - If it is not built (`lastImplementedHash` is null or `!= currentHash`),
      **skip it** and warn — you cannot accept a piece that isn't implemented
@@ -67,7 +67,7 @@ Then determine which pieces to accept:
    - Otherwise set `acceptedHash = lastImplementedHash`, `acceptedBy` (the git
      user, or a name passed by the caller), and `acceptedAt` (current
      timestamp).
-3. Write `status.json` back.
+3. Write `product/design/status.json` back.
 4. Commit: `Accept design pieces: <ids or summary>`.
 5. Report: how many pieces are now `accepted`, and how many remain
    `awaiting-acceptance` / `to-implement` / `to-review`.
@@ -80,7 +80,7 @@ Then determine which pieces to accept:
 | Piece already accepted at the current hash | No-op for that piece; note it. |
 | `--from-pr` but no `GITHUB_TOKEN` / `gh` | Report that PR sync needs a token; fall back to explicit/interactive. |
 | No `awaiting-acceptance` pieces | Report "nothing awaiting acceptance." No commit. |
-| No ledger / no Figma-sourced design | Report "no design ledger to accept against." Stop. |
+| No global ledger / no Figma-sourced pieces | Report "no design ledger to accept against." Stop. |
 | Nothing actually changed | No commit (no no-op commits). |
 
 ## Critical Rules

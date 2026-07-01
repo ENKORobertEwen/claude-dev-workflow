@@ -1,5 +1,29 @@
 # Changelog — dev plugin
 
+## 2.15.0 — Host-aware PR creation (GitHub + Azure DevOps)
+
+**Problem fixed:** `/dev:implement` step 6 was "Create Pull Request (GitHub
+only)" — hardcoded to `GITHUB_TOKEN` + the GitHub REST API. On any other host
+(e.g. Azure DevOps) it always fell into the "push + create the PR manually"
+branch, and `/dev:figma-accept --from-pr` (GitHub-only) could not sync
+acceptance at all. Nothing broke, but there was no automation off GitHub.
+
+**Changes:**
+- **`/dev:implement` step 6 is now host-aware.** It detects the host from the
+  `origin` remote and creates the PR on the matching platform:
+  - **GitHub** — `gh pr create` (CLI handles auth), falling back to the
+    `GITHUB_TOKEN` REST API.
+  - **Azure DevOps** — `az repos pr create --detect true` (reads the org from
+    the git remote; project/repo from git config); auth via
+    `AZURE_DEVOPS_EXT_PAT` or `az login`.
+  - **Unknown host / missing CLI / no credential** — pushes the branch and
+    hands off to a manual PR, naming the credential that would enable
+    automation. The PR body is identical across hosts.
+- **`/dev:figma-accept --from-pr` is host-aware** too: GitHub via
+  `gh pr view --json body` (or REST), Azure DevOps via
+  `az repos pr show --id … --detect true`; falls back to explicit/interactive
+  when the host CLI/token is unavailable.
+
 ## 2.14.0 — Stop the drift cascade at the token abstraction boundary
 
 **Problem fixed:** the soft cascade in `/dev:figma-refresh-plan` flipped every

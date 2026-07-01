@@ -49,7 +49,10 @@ to accept (pieces are addressed by their `<source>:…` id):
    exactly these.
 2. **From a PR** — `/dev:figma-accept --from-pr <number>`: read the PR's
    acceptance checklist (see `/dev:implement`'s PR body) and accept every piece
-   whose box is checked. Requires `GITHUB_TOKEN` / `gh`.
+   whose box is checked. Host-aware, detected from `origin`: GitHub via
+   `gh pr view <number> --json body` (or the `GITHUB_TOKEN` REST API); Azure
+   DevOps via `az repos pr show --id <number> --detect true`. If neither the
+   host's CLI nor its token is available, fall back to explicit/interactive.
 3. **Interactive** — `/dev:figma-accept` with no args: list all
    `awaiting-acceptance` pieces with their `codeTarget` and the live URL, and
    ask the tester which to accept. (If fully headless, accept none and just
@@ -78,7 +81,7 @@ to accept (pieces are addressed by their `<source>:…` id):
 |----------|----------|
 | Piece not yet built | Skip + warn. Cannot accept an unbuilt piece. |
 | Piece already accepted at the current hash | No-op for that piece; note it. |
-| `--from-pr` but no `GITHUB_TOKEN` / `gh` | Report that PR sync needs a token; fall back to explicit/interactive. |
+| `--from-pr` but the host's CLI/token is unavailable (`gh`/`GITHUB_TOKEN`, or `az`/`AZURE_DEVOPS_EXT_PAT`) | Report that PR sync needs the host CLI or token; fall back to explicit/interactive. |
 | No `awaiting-acceptance` pieces | Report "nothing awaiting acceptance." No commit. |
 | No global ledger / no Figma-sourced pieces | Report "no design ledger to accept against." Stop. |
 | Nothing actually changed | No commit (no no-op commits). |

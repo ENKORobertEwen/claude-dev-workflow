@@ -1,18 +1,16 @@
 # Figma Refresh Plan Command
 
-Pull the current Figma design into the repo, maintain a per-piece
-implementation-status ledger, and write the **UI plan** from that ledger — the
-phases for every piece that is open (not yet implemented against the current
-design). This is the single source of UI plans, first build and later rework
-alike.
+Pull the current Figma design for **one source** into the repo and update the
+**global** per-piece implementation-status ledger (`product/design/status.json`).
+This is the pixels → ledger step. It does **not** write a UI plan — selecting
+open pieces and writing the UI plan is `/dev:plan`'s job (it reads this ledger).
 
-This command runs **after `/dev:plan`**, which resolves the Figma mapping and
-design-system spec it depends on. It does the pixels → ledger → plan bridge:
+This command runs **after `/dev:plan`** has resolved the Figma mapping and
+design-system spec for the source it pulls:
 
-- **Pulling the design and maintaining the ledger always happens.**
-- **A UI plan is written for every open piece** (`to-implement` / `to-review`),
-  in dependency order. The only time no plan is written is when nothing is open
-  (everything implemented and unchanged).
+- **Pulling the design and maintaining the global ledger always happens.**
+- **No UI plan is ever written here.** The command reports an "open per piece"
+  overview to stdout so you can see what is open, then points at `/dev:plan`.
 
 There is **no automatic refresh inside `/implement`** — refreshing is always
 this explicit step, and `/dev:implement` only executes plans.
@@ -21,23 +19,22 @@ this explicit step, and `/dev:implement` only executes plans.
 
 ```
 1. /dev:plan                 Resolves the Figma mapping + design-system spec
-                             (naming convention, responsive rules) into the
-                             UI/UX Spec, and plans the technical groundwork
-                             (env, framework, routing, architecture). Does NOT
-                             write per-piece UI phases.
+                             (naming convention, responsive rules) for a source.
+                             Later runs: selects open pieces from the global
+                             ledger and writes the UI plan. Does NOT pull.
 
-2. /dev:figma-refresh-plan   Pull the design (using the mapping), create/update
-                             the ledger, and write the UI plan from it — first
-                             run: all open pieces; later runs: only what changed.
+2. /dev:figma-refresh-plan   Pull one source (using the mapping), create/update
+     <source>                the GLOBAL ledger. Writes NO UI plan; prints the
+                             open-piece overview to stdout.
 
-3. /dev:implement            Executes the plans; writes the ledger back to
+3. /dev:plan                 Select the open pieces to work on now; compare code
+                             against the snapshot; produce the UI plan.
+
+4. /dev:implement            Executes the plan; writes the global ledger back to
                              "implemented".
 
-4. /dev:figma-refresh-plan   Later, design changed: pull fresh, diff via the
-                             ledger, write a rework plan for the changed
-                             (and dependent) pieces.
-
-5. /dev:implement            Executes the rework plan; writes the ledger back.
+5. /dev:figma-refresh-plan   Later, design changed: pull fresh, diff via the
+     <source>                global ledger (drift → to-implement/to-review).
 ```
 
 ## Input
@@ -51,6 +48,14 @@ Find what to refresh using this priority:
    mapping table.
 3. **No Figma reference anywhere** — Report: "No Figma reference found. The
    feature has no Figma-sourced design — nothing to refresh." Stop.
+
+**Source selection.** A project may pull from several Figma files. The
+`<source>` argument names which one — it is the stable slug used as the piece-id
+namespace and the snapshot directory (`product/design/sources/<source>/`).
+Conventionally the shared design-system library is the source `lib`; each
+feature file is its own source (e.g. `login`). If `<source>` is omitted and the
+current plan references exactly one Figma file, use that file's source slug;
+if it references several, list them and ask which to refresh.
 
 The plan's UI/UX Spec is the source of the **mapping** (which Figma nodes are
 which logical pieces, at which breakpoint, and which frames to ignore). The
@@ -74,12 +79,12 @@ Figma file, report that `/dev:plan` must establish it first, and stop.
 
 ### 1. Cheap change gate
 
-Read the last pulled file version from `product/design/<plan-slug>/source.md`
+Read the last pulled file version from `product/design/sources/<source>/source.md`
 (if it exists). Fetch the current Figma file-level `version` via the Figma MCP
 (`get_metadata` on the file). If the version is unchanged since the last pull:
 
 - Report "No design changes since last refresh." 
-- Make **no commit** and write **no plan**. Stop.
+- Make **no commit**. Stop.
 
 Figma exposes no per-node version, only this file-level one — it is purely an
 early-out. If it changed (or there is no prior snapshot), continue.
@@ -106,11 +111,11 @@ Using the Figma MCP, for the mapped nodes:
 
 ### 3. Materialize the design files
 
-Write into `product/design/<plan-slug>/`:
+Write into `product/design/sources/<source>/`:
 
 | File | Contents |
 |------|----------|
-| `source.md` | Figma file key + URL, mapped node IDs, file `version`, fetched-at timestamp |
+| `source.md` | Figma file key + URL, mapped node IDs, file `version`, fetched-at timestamp — the per-source metadata (no longer stored in the ledger) |
 | `context.md` | Design context per piece (structure/layout/code hints from `get_design_context`) |
 | `tokens.json` | Design tokens in **W3C DTCG format** (`$value` / `$type` / `$description`), generated from `get_variable_defs` — the raw Figma-named tokens plus any derived responsive tokens (see below) |
 | `status.json` | The per-piece ledger (see schema below) |
@@ -330,13 +335,10 @@ from token references. Build them from the pulled metadata/context.
 {
   "hashSpecVersion": 1,
   "hashSpec": "node-metadata-structural-v1",
-  "figmaFileKey": "abc123",
-  "figmaUrl": "https://www.figma.com/design/abc123/...",
-  "fileVersion": "987654321",
-  "fetchedAt": "2026-06-24T10:00:00Z",
   "pieces": [
     {
-      "id": "login.view.mobile",
+      "id": "login:view.mobile",
+      "source": "login",
       "level": "view",
       "breakpoint": "mobile",
       "figmaNodeIds": ["123:45"],
@@ -344,7 +346,7 @@ from token references. Build them from the pulled metadata/context.
       "lastImplementedHash": "sha256:...",
       "currentHash": "sha256:...",
       "status": "to-implement",
-      "dependsOn": ["button.primitive", "color.primary.token"],
+      "dependsOn": ["lib:button.primitive", "lib:color.primary.token"],
       "acceptedHash": null,
       "acceptedBy": null,
       "acceptedAt": null
@@ -353,6 +355,13 @@ from token references. Build them from the pulled metadata/context.
 }
 ```
 
+- **Top level is global.** `product/design/status.json` holds every piece from
+  every source. Per-source metadata (`figmaFileKey`, `figmaUrl`, `fileVersion`,
+  `fetchedAt`) lives in each `sources/<source>/source.md`, NOT here.
+- `id` is `<source>:<piece-path>`; the namespace prefix equals the `source`
+  field and the `sources/<source>/` directory name. `dependsOn` uses the same
+  namespaced ids and may cross sources (feature → library). Shared
+  design-system pieces (`lib:*`) exist once and are referenced by every feature.
 - `hashSpecVersion` / `hashSpec`: which hash algorithm produced the stored
   hashes. The command compares this to its current spec; a mismatch (or absence)
   triggers the controlled re-baseline in step 4.4, never false drift. Bump these
@@ -397,59 +406,24 @@ absent `hashSpecVersion` routes the next run through the step 4.4 re-baseline,
 which recomputes with the current script and carries baselines and acceptances
 forward. Such pieces are never treated as drift.
 
-### 5. Write the UI plan from the ledger
+### 5. Report the open pieces (no UI plan)
 
-Collect the **open pieces**: everything with `status: "to-implement"` or
-`status: "to-review"`. (Adoption-seeded `implemented` pieces are not open, so
-they get no phase — exactly the intended effect.)
+This command writes **no** UI plan. After the ledger is updated, print an
+"open per piece" overview to stdout: for each piece with `status` in
+`to-implement` / `to-review`, list its `id`, `level`, `breakpoint`, and status.
+Group by source. This is ephemeral console output — never a committed file;
+"what's open" is always re-derived from the ledger.
 
-- **If nothing is open** (every piece `implemented` and unchanged): write **no
-  plan**. Commit the design/ledger snapshot if anything changed, then report
-  "nothing to do."
-- **Otherwise**: write the UI plan (step 6). This is the same whether it's the
-  first build (all pieces open) or a later rework (only changed pieces open) —
-  the ledger drives it either way.
+Then point the user at `/dev:plan` to select which open pieces to plan and
+implement next.
 
-This is the single source of UI plans. `/dev:plan` does not write per-piece UI
-phases; it only resolves the mapping + design-system spec and plans the
-non-UI technical groundwork.
-
-### 6. Write the UI plan
-
-Determine the next plan number by scanning `product/plans/todo/` and
-`product/plans/done/` for the highest number; use the next one.
-
-Write `product/plans/todo/XXX-PLAN-FIGMA-UI-<feature>.md` (or `-REWORK-` for a
-later diff run) using the plugin's plan format. Specifics:
-
-- **Acceptance Criteria**: each open piece must visually match the current
-  design.
-- **Phase ordering**: dependency order — `token` (design system) → `primitive`
-  (with browseable preview) → `component` → `layout` → `view×breakpoint`. Lower
-  levels first so the design system exists before anything references it.
-- **One phase per piece** (or per tightly-coupled small group). Each phase:
-  - `**Type:** Frontend`
-  - **Design Notes** pointing at the design files
-    (`product/design/<plan-slug>/context.md`, `tokens.json`) and the specific
-    `figmaNodeIds` / `codeTarget` from the ledger.
-  - States to verify (per the UI/UX Spec).
-- **`to-review` pieces**: include them as phases too, but mark them clearly as
-  *"Review only — a dependency changed; confirm this piece still matches and
-  re-implement only if needed."* The implementer decides; if no change is
-  needed it just confirms and marks the ledger.
-- **Do NOT add phases for `awaiting-acceptance` pieces.** Those are built and
-  unchanged — there is nothing to rebuild; they are a human sign-off gap,
-  surfaced in the report and resolved via `/dev:figma-accept`, not the UI plan.
-- Note in the plan overview which file version this rework targets and which
-  pieces are `to-implement` vs `to-review`.
-
-### 7. Commit
+### 6. Commit
 
 Make a **dedicated snapshot commit**, separate from any implementation phase
 commits:
 
 ```bash
-git add product/design/<plan-slug>/ product/plans/todo/   # plan dir only if a UI plan was written
+git add product/design/status.json product/design/sources/<source>/
 git commit -m "Design snapshot: <feature> (figma file v<version>)"
 ```
 
@@ -457,22 +431,22 @@ git commit -m "Design snapshot: <feature> (figma file v<version>)"
 have caught the no-change case; if step 4 found no piece changes either, do not
 create a no-op commit).
 
-### 8. Report
+### 7. Report
 
 Print a concise summary:
 
 - File version pulled and fetched-at.
 - Counts: `to-implement`, `to-review`, `awaiting-acceptance` (built but not
   signed off), `accepted`.
-- Whether a UI plan was written (and its path), or "nothing to do" when no piece
-  is open.
-- The next step: run `/dev:implement` to execute the plan(s).
+- The open-piece overview (counts of `to-implement` / `to-review` /
+  `awaiting-acceptance` / `accepted`), printed to stdout — no plan is written.
+- The next step: run `/dev:plan` to select open pieces and produce the UI plan.
 - The design files path.
 
 ## Ledger write-back (performed by `/dev:implement`, documented here)
 
 When `/dev:implement` completes a frontend piece, it updates that piece in
-`status.json`: sets `lastImplementedHash` to the piece's `currentHash` and
+`product/design/status.json`: sets `lastImplementedHash` to the piece's `currentHash` and
 `status` to `implemented`. A `to-review` piece that the implementer confirms
 needs no change is likewise set back to `implemented` (its hash updated to
 current). This is what makes the next refresh's diff meaningful.
@@ -482,7 +456,7 @@ current). This is what makes the next refresh's diff meaningful.
 When invoked as `/dev:figma-refresh-plan <figma-url>` with no plan context:
 
 - Pull the design and write `source.md`, `context.md`, `tokens.json` under
-  `product/design/_adhoc/<figma-node>/`.
+  `product/design/sources/_adhoc/<figma-node>/`.
 - Do **not** maintain a ledger and do **not** write a rework plan — there is no
   mapping and no baseline. This is a raw fetch/snapshot for exploration.
 - Commit as `Design snapshot (ad-hoc): <figma-node>`.
@@ -504,24 +478,24 @@ This command is headless where possible. Predefined behaviors:
 | Scenario | Behavior |
 |----------|----------|
 | Figma MCP unavailable | Report clearly. Stop. Do NOT guess design state. |
-| File version unchanged since last pull | Report "no changes". No commit, no plan. Stop. |
+| File version unchanged since last pull | Report "no changes". No commit. Stop. |
 | No Figma reference in plan / no plan and no URL | Report "nothing to refresh". Stop. |
 | No mapping yet (`/dev:plan` not run for this Figma file) | Report that `/dev:plan` must establish the mapping first. Stop. This is the ONLY case that points back to `/dev:plan`. |
 | Component not mapped in Code Connect | Use the plan's confirmed fallback mapping for identity. |
-| `status.json` has no `hashSpecVersion`, or it differs from the current spec (legacy / `adoptionSeed` / null hashes) | Controlled re-baseline (step 4.4): recompute with the current script, carry baselines + accepted pieces forward, set `hashSpecVersion`, commit "migrated", write NO plan, point to a re-run. NEVER false drift. |
+| `status.json` has no `hashSpecVersion`, or it differs from the current spec (legacy / `adoptionSeed` / null hashes) | Controlled re-baseline (step 4.4): recompute with the current script, carry baselines + accepted pieces forward, set `hashSpecVersion`, commit "migrated", write nothing but the migrated ledger, point to a re-run. NEVER false drift. |
 | `node` unavailable for the reference hash script | Stop with a clear message. Do NOT fall back to ad-hoc/prose hashing. |
-| Open pieces exist (first build or later diff) | Pull + ledger + write the UI plan in `product/plans/todo/` + commit. Point to `/dev:implement`. |
-| Nothing open (all implemented, unchanged) | Report "nothing to do". No plan; no commit unless the snapshot itself changed. |
-| Ad-hoc free URL, no plan | Raw snapshot under `product/design/_adhoc/`. No ledger, no plan. |
+| Open pieces exist (first build or later diff) | Pull + update the global ledger + commit. Print the open overview. Point to `/dev:plan`. |
+| Nothing open (all implemented, unchanged) | Report "nothing to do". No commit unless the snapshot itself changed. Point to `/dev:plan` only if something is open. |
+| Ad-hoc free URL, no plan | Raw snapshot under `product/design/sources/_adhoc/`. No ledger, no plan. |
 
 ## Critical Rules
 
 1. **Runs after `/dev:plan`, never before.** It consumes the mapping +
    design-system spec that `/dev:plan` produces. If no mapping exists yet, stop
    and point to `/dev:plan`.
-2. **Single source of UI plans.** This command writes the UI plan from the ledger
-   for every open piece — first build and later rework alike. `/dev:plan` does
-   not write per-piece UI phases. The only no-plan case is nothing open.
+2. **Never writes a UI plan.** This command only pulls one source and updates
+   the global ledger, then reports the open pieces. `/dev:plan` is the single
+   source of UI plans — it selects open ledger pieces and writes them.
 3. **The mapping is established in `/dev:plan`, consumed here.** Do not invent or
    re-resolve the Figma-to-piece mapping in this command.
 4. **Deterministic hashing only.** Hashes come exclusively from the committed

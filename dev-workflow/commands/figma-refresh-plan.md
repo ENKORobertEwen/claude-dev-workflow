@@ -95,15 +95,17 @@ Using the Figma MCP, for the mapped nodes:
 
 - `get_metadata` — per mapped node: `id`, `name`, `type`, `width`, `height`, and
   variant properties (for component sets). **This is the source for the
-  structural hash (step 4).** It is chosen over `get_design_context` because it
-  is stable across runs — it contains only ids, names, sizes, and variant
-  structure, none of the volatile content that breaks hashing.
+  structural fields of the hash (step 4).** It is chosen for those fields
+  because it is stable across runs — it contains only ids, names, sizes, and
+  variant structure, none of the volatile content that breaks hashing.
 - `get_design_context` (and node subtrees) — structure, layout, code hints, used
-  ONLY as reference material for the implementer (written to `context.md`).
-  **Never used for hashing:** its output is unstable run-to-run (it embeds a
-  screenshot, freshly *generated* reference code, asset/download URLs, and
-  absolute x/y canvas positions), so two pulls of an unchanged design produce
-  different bytes.
+  as reference material for the implementer (written to `context.md`), and the
+  source of the **bound-variable identifiers** in the descriptor's `tokens`
+  field (step 4.2). **Its volatile output is never hashed:** the screenshot,
+  freshly *generated* reference code, asset/download URLs, and absolute x/y
+  canvas positions vary run-to-run, so two pulls of an unchanged design produce
+  different bytes — only the stable bound-variable *identifiers* are extracted
+  into the hash, never that volatile content.
 - `get_variable_defs` — design tokens (colors, typography, spacing, radii).
   Source for token-piece hashes (step 4).
 - `get_code_connect_map` — Figma→code identity for mapped components. **Optional**
@@ -544,11 +546,12 @@ This command is headless where possible. Predefined behaviors:
 3. **The mapping is established in `/dev:plan`, consumed here.** Do not invent or
    re-resolve the Figma-to-piece mapping in this command.
 4. **Deterministic hashing only.** Hashes come exclusively from the committed
-   `ledger-hash.mjs` reference script over the pinned `get_metadata`-derived
-   descriptor (visual pieces) or DTCG subtree (token pieces). Never hash
-   `get_design_context` output, never improvise a canonicalization, never compute
-   a hash by hand. Identical design ⇒ identical hash, across sessions and MCP
-   ordering.
+   `ledger-hash.mjs` reference script over the pinned descriptor — `get_metadata`
+   structural fields plus bound-variable identifiers (visual pieces) — or the
+   DTCG subtree (token pieces). Never hash `get_design_context`'s volatile output
+   (screenshot, generated code, asset URLs, x/y), never improvise a
+   canonicalization, never compute a hash by hand. Identical design ⇒ identical
+   hash, across sessions and MCP ordering.
 5. **Never false drift on a spec change.** If `hashSpecVersion` is absent or
    differs, re-baseline (step 4.4) — recompute, carry baselines + acceptances
    forward, report "migrated," write no plan. Bump `hashSpecVersion` whenever the

@@ -405,6 +405,28 @@ absent `hashSpecVersion` routes the next run through the step 4.4 re-baseline,
 which recomputes with the current script and carries baselines and acceptances
 forward. Such pieces are never treated as drift.
 
+#### Migrating legacy per-plan ledgers (one-time, automatic, safe)
+
+Before hash-spec v-checks, on any run: if one or more legacy
+`product/design/<plan-slug>/status.json` files exist and `product/design/status.json`
+does not yet contain their pieces, migrate them — this is a **relocation, not a
+drift event**:
+
+1. For each legacy ledger, derive its source slug (the `<plan-slug>` dir name, or
+   a slug confirmed with the user) and namespace every piece id to `<source>:…`.
+2. Rewrite each piece's `dependsOn` entries to the namespaced ids. Populate the
+   new `source` field.
+3. Move `source.md` / `context.md` / `tokens.json` from
+   `product/design/<plan-slug>/` to `product/design/sources/<source>/`.
+4. Lift `figmaFileKey` / `figmaUrl` / `fileVersion` / `fetchedAt` from each legacy
+   ledger's top level into that source's `source.md`.
+5. Merge all pieces into a single `product/design/status.json` with only
+   `hashSpecVersion` / `hashSpec` at the top level.
+6. Because `hashSpecVersion` is unchanged, carry `lastImplementedHash` and all
+   acceptance fields forward untouched — do **not** recompute or flip status.
+7. Commit `Migrate design ledger to global (product/design/status.json)`. Write
+   nothing else this run; report the migration and point to `/dev:plan`.
+
 ### 5. Report the open pieces (no UI plan)
 
 This command writes **no** UI plan. After the ledger is updated, print an
@@ -480,6 +502,7 @@ This command is headless where possible. Predefined behaviors:
 | No mapping yet (`/dev:plan` not run for this Figma file) | Report that `/dev:plan` must establish the mapping first. Stop. |
 | Component not mapped in Code Connect | Use the plan's confirmed fallback mapping for identity. |
 | `status.json` has no `hashSpecVersion`, or it differs from the current spec (legacy / `adoptionSeed` / null hashes) | Controlled re-baseline (step 4.4): recompute with the current script, carry baselines + accepted pieces forward, set `hashSpecVersion`, commit "migrated", write nothing but the migrated ledger, point to a re-run. NEVER false drift. |
+| Legacy per-plan ledger(s) exist (`product/design/<plan-slug>/status.json`) | One-time migration to `product/design/status.json` (relocation, not drift): namespace ids, move snapshots to `sources/<source>/`, carry baselines + acceptances forward, commit "migrate", write nothing else. |
 | `node` unavailable for the reference hash script | Stop with a clear message. Do NOT fall back to ad-hoc/prose hashing. |
 | Open pieces exist (first build or later diff) | Pull + update the global ledger + commit. Print the open overview. Point to `/dev:plan`. |
 | Nothing open (all implemented, unchanged) | Report "nothing to do". No commit unless the snapshot itself changed. Point to `/dev:plan` only if something is open. |

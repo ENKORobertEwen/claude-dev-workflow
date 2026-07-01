@@ -1,5 +1,35 @@
 # Changelog — dev plugin
 
+## 2.13.0 — Global design ledger
+
+**Problem fixed:** the design ledger was one-per-plan
+(`product/design/<plan-slug>/status.json`), so shared design-system pieces
+(tokens/primitives/components) were re-tracked per plan and drift in a shared
+component never propagated across plans. The ledger is really the project's
+global implementation roadmap, accidentally partitioned along the disposable
+plan artifact.
+
+**Changes:**
+- One **global** ledger at `product/design/status.json`, keyed by
+  source-namespaced pieces (`<source>:<piece-path>`, e.g. `lib:button.primitive`,
+  `login:view.mobile`). Shared `lib:*` design-system pieces exist once.
+- Figma snapshots move to `product/design/sources/<source>/`
+  (`source.md` / `context.md` / `tokens.json`); per-source metadata
+  (`figmaFileKey` / `fileVersion` / `fetchedAt`) lives in `source.md`, not the
+  ledger.
+- `/dev:figma-refresh-plan <source>` now **only** pulls one source and updates
+  the global ledger, printing an open-piece overview — it no longer writes a UI
+  plan.
+- `/dev:plan` now writes the UI plan, selecting open ledger pieces
+  conversationally and comparing code against the pinned snapshot. Two-stage per
+  source: `/plan` (mapping) → `figma-refresh-plan <source>` → `/plan` (select +
+  UI plan) → `/implement`.
+- One-time automatic migration of legacy per-plan ledgers into the global
+  ledger (relocation, not drift: baselines and acceptances carried forward).
+
+**Out of scope:** the deterministic hash (`ledger-hash.mjs`), status flags, the
+soft dependency cascade, and acceptance semantics are unchanged.
+
 ## 2.12.0 — Deterministic design-ledger hash
 
 **Problem fixed:** `/dev:figma-refresh-plan`'s drift detection used a per-piece

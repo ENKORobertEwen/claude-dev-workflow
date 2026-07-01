@@ -113,7 +113,7 @@ If the feature has a user-facing frontend, design quality is a first-class conce
   2. **Propose** a mapping table — logical screens × breakpoint (desktop/tablet/mobile), primitives/components (from Code Connect where mapped), and an explicit **ignore list** for flow/annotation frames — marking anything uncertain (e.g. "these buttons aren't Figma components — treat as primitives?").
   3. The user confirms/corrects. Record the confirmed mapping + the Figma URL in the UI/UX Spec.
 
-  Do **not** pull the design or enumerate per-pixel frontend phases here. Pulling the design, the per-piece status ledger, and the (re)work plan are produced by `/dev:figma-refresh-plan`, which consumes this mapping. Best for high-fidelity / brand-critical UI and multi-screen consistency.
+  Do **not** pull the design or enumerate per-pixel frontend phases here. Pulling the design and maintaining the global per-piece status ledger are done by `/dev:figma-refresh-plan`, which consumes this mapping; `/plan` then selects open pieces from that ledger and writes the UI plan. Best for high-fidelity / brand-critical UI and multi-screen consistency.
 - **B) User-supplied, other references** — Screenshots, an existing app look, or a description the user gives. Capture these in the UI/UX Spec references.
 - **C) Claude-generated** — The user has no design. You *propose* a direction using the `frontend-design` skill, exactly like the architecture decisions in step 3, and the user approves or adjusts. Best for greenfield/speed; the visual-review loop in `/dev:implement` then refines it.
 
@@ -136,11 +136,11 @@ Resolve, with the user (proposing defaults wherever they have no preference):
 
 The goal is that visual taste is fixed in the plan. The implementer should apply judgment only on small unspecified visual details — never on the overall design direction.
 
-**`/plan` does not write the per-piece UI phases.** For Figma-sourced frontends, the UI plan (design system → primitives → components → layouts → views×breakpoint) is produced by `/dev:figma-refresh-plan` from the ledger — it is the single source of UI plans. `/plan`'s job for the frontend is to resolve the **mapping + design-system spec** (above) and to plan the **non-UI technical groundwork** (env, framework, routing, component architecture, build/`./do` changes). After `/plan`, the order is: `/dev:figma-refresh-plan` (pull + ledger + UI plan) → `/dev:implement`.
+**`/plan` writes the per-piece UI plan — from the global ledger.** For Figma-sourced frontends the flow is two-stage per source. First `/plan` resolves the **mapping + design-system spec** (above) so `/dev:figma-refresh-plan <source>` can pull and seed the global ledger. Then `/plan` runs again as the **UI-planning** pass: it reads the open pieces (`to-implement` / `to-review`) directly from `product/design/status.json`, and **you conversationally select** which of them to plan now (e.g. "just `login:view.*` plus its open `lib:` dependencies"). For each selected piece `/plan` compares the current code against the pinned **snapshot** (`product/design/sources/<source>/context.md`, `tokens.json`) — it does NOT pull Figma or compute hashes — and writes the UI plan (design system → primitives → components → layouts → views×breakpoint, dependency order) to `product/plans/todo/`. `/plan` also plans the **non-UI technical groundwork** (env, framework, routing, component architecture, build/`./do` changes). Order: `/dev:plan` (mapping) → `/dev:figma-refresh-plan <source>` (pull + global ledger) → `/dev:plan` (select + UI plan) → `/dev:implement`.
 
-For reference, the dependency order `/dev:figma-refresh-plan` uses is bottom-up: design system first (theme/tokens — nothing can reference a token until it exists), then primitives (with a browseable preview), then components → layouts → views. Components, layouts, and views are all responsive, mapped across their breakpoints.
+For reference, the dependency order the UI plan uses is bottom-up: design system first (theme/tokens — nothing can reference a token until it exists), then primitives (with a browseable preview), then components → layouts → views. Components, layouts, and views are all responsive, mapped across their breakpoints.
 
-**Re-check all five levels on every planning pass.** A project is never "done" at the lower levels. Every time you plan a frontend feature, sweep all five — design system, primitives, components, layouts, views — for additions and changes. The design system and primitives change rarely, but new components and pages are constantly added or modified, and a new component may require a new primitive or token. Do not assume lower levels are frozen; explicitly confirm whether this feature touches each level and include phases accordingly. (`/dev:figma-refresh-plan` enforces the same sweep automatically via the ledger, but only for pieces present in the mapping — so keep the mapping current here when new pieces appear.)
+**Re-check all five levels on every planning pass.** A project is never "done" at the lower levels. Every time you plan a frontend feature, sweep all five — design system, primitives, components, layouts, views — for additions and changes. The design system and primitives change rarely, but new components and pages are constantly added or modified, and a new component may require a new primitive or token. Do not assume lower levels are frozen; explicitly confirm whether this feature touches each level and include phases accordingly. (`/dev:figma-refresh-plan` keeps the global ledger's pieces current via the mapping — so keep the mapping current here when new pieces appear; `/plan` then selects from those pieces.)
 
 #### Adopting an existing / in-progress project
 
@@ -163,14 +163,15 @@ will ignore work already done.
    classification — it drives the ledger seed.
 4. **Record the `matches` list in the plan** (plus any non-UI groundwork that's
    missing, as normal phases). Do NOT write the per-piece UI remediation phases
-   here — `/dev:figma-refresh-plan` writes those from the seeded ledger (every
-   `refactor` / `rebuild` / `missing` piece is `to-implement`, so it lands in the
-   UI plan automatically; `matches` pieces are seeded `implemented` and get no
-   phase).
+   here — after the ledger is seeded, a `/dev:plan` UI-planning pass writes those
+   from the global ledger (every `refactor` / `rebuild` / `missing` piece is
+   `to-implement` and selectable; `matches` pieces are seeded `implemented` and
+   get no phase).
 
-Then run `/dev:figma-refresh-plan`: it seeds the ledger from the `matches` list,
-pulls the design, and writes the UI remediation plan. After this one-time pass
-the project is on the normal lifecycle.
+Then run `/dev:figma-refresh-plan <source>`: it seeds the global ledger from the
+`matches` list and pulls the design. Run `/dev:plan` again to select the open
+pieces and write the UI remediation plan. After this one-time pass the project
+is on the normal lifecycle.
 
 If the feature has no frontend, skip this step and omit the UI/UX Spec from the plan.
 

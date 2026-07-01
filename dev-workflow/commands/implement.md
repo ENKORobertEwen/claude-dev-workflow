@@ -338,15 +338,15 @@ curl -s -X POST \
   -d '{ "title": "XXX — Feature Name", "head": "feat/XXX-feature-name", "base": "main", "body": "[the full body above]" }'
 ```
 
-**Create the PR — Azure DevOps.** Use the Azure CLI with the `azure-devops` extension. `--detect true` (the default) reads organization/project/repository from the local git remote, so no IDs are hardcoded:
+**Create the PR — Azure DevOps.** Use the Azure CLI with the `azure-devops` extension. `--detect true` reads the **organization** from the git remote; project and repository are resolved from git config — all three are embedded in the Azure DevOps remote URL, so no IDs are hardcoded:
 
 ```bash
 az repos pr create --detect true \
   --source-branch feat/XXX-feature-name --target-branch main \
-  --title "XXX — Feature Name" --description "[the full body above — markdown OK]"
+  --title "XXX — Feature Name" --description "$(cat <pr-body-file>)"
 ```
 
-Auth is non-interactive via `AZURE_DEVOPS_EXT_PAT` (a PAT with Code → Read & Write, including Pull Request), or an existing `az login`. If the extension is missing, `az extension add --name azure-devops` installs it.
+`az repos pr create` has **no** `--description-file`, so pass the same body file inline via `--description "$(cat <pr-body-file>)"` (markdown is supported). Auth is non-interactive via `AZURE_DEVOPS_EXT_PAT` (a PAT with Code → Read & Write, including Pull Request), or an existing `az login`. If the extension is missing, `az extension add --name azure-devops` installs it.
 
 **Capture the PR number/URL** the tool returns: put it in the CLI summary — it is the `<PR number>` that `/dev:figma-accept --from-pr` consumes.
 

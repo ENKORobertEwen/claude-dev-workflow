@@ -13,9 +13,9 @@ acceptance at all. Nothing broke, but there was no automation off GitHub.
   `origin` remote and creates the PR on the matching platform:
   - **GitHub** — `gh pr create` (CLI handles auth), falling back to the
     `GITHUB_TOKEN` REST API.
-  - **Azure DevOps** — `az repos pr create --detect true` (auto-detects
-    org/project/repo from the remote); auth via `AZURE_DEVOPS_EXT_PAT` or
-    `az login`.
+  - **Azure DevOps** — `az repos pr create --detect true` (reads the org from
+    the git remote; project/repo from git config); auth via
+    `AZURE_DEVOPS_EXT_PAT` or `az login`.
   - **Unknown host / missing CLI / no credential** — pushes the branch and
     hands off to a manual PR, naming the credential that would enable
     automation. The PR body is identical across hosts.

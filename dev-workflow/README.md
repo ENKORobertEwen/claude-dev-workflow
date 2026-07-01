@@ -84,7 +84,7 @@ Keep a Figma-sourced design and the code in sync. The command:
 
 Record **human acceptance** of implemented UI pieces. Building a piece and passing the automated visual review is not the same as a tester signing off, so acceptance is tracked as a separate dimension in the ledger (`acceptedHash` / `acceptedBy` / `acceptedAt`). A piece is `accepted` only when a tester signed off on exactly what's built; any later design change that triggers a rebuild re-opens acceptance automatically.
 
-Two channels: a CLI command (`/figma-accept <piece>`, `--all`, or `--from-pr <n>` to sync a PR's acceptance checklist) and the acceptance checklist that `/implement` puts in the PR body. Acceptance is **soft** — it never blocks merges or plan completion; unsigned pieces simply stay visible as `awaiting-acceptance` until accepted.
+Two channels: a CLI command (`/figma-accept <piece>`, `--all`, or `--from-pr <n>` to sync a PR's acceptance checklist — host-aware for GitHub and Azure DevOps) and the acceptance checklist that `/implement` puts in the PR body. Acceptance is **soft** — it never blocks merges or plan completion; unsigned pieces simply stay visible as `awaiting-acceptance` until accepted.
 
 ## Skills
 

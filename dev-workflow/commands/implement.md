@@ -273,11 +273,15 @@ sleep 5
 
 **This step must produce at least one URL.** If none of the above yields a URL, note "URL could not be determined — check `./do run` manually" but still include the Live URLs section in the PR.
 
-### 6. Create Pull Request (GitHub only)
+### 6. Create Pull Request (host-aware: GitHub + Azure DevOps)
 
-Check if `GITHUB_TOKEN` is set in the environment. If so, create a pull request using the GitHub REST API.
+After the branch is pushed, open a PR against `main`. The PR body is identical regardless of host (see below); only the creation mechanism differs. Detect the host from the `origin` remote URL (`git remote get-url origin`) and use the matching path — prefer the platform CLI (it handles auth), fall back to REST or a manual hand-off:
 
-**Determine the repo:** Parse the `origin` remote URL to extract `owner/repo`.
+- `github.com` or a GitHub Enterprise host → **GitHub**.
+- `dev.azure.com` or `*.visualstudio.com` → **Azure DevOps**.
+- anything else → **unknown host** (manual hand-off, below).
+
+**Determine the repo:** Parse the `origin` remote URL — for GitHub extract `owner/repo`; for Azure DevOps let the `az` CLI auto-detect organization/project/repository from the remote (`--detect true`), so nothing is hardcoded.
 
 **Generate PR body from the plan AND the runtime summary.** The PR body must include everything a reviewer needs — the same information shown in the CLI summary. Specifically:
 
@@ -317,22 +321,36 @@ Tick a box once you've reviewed and accept that piece on the live URL. Acceptanc
 
 **The "Live URLs" section is mandatory.** Always include it using the URLs determined in step 5. Never omit this section — even if no URL could be determined, include the section with a note that the URL needs to be checked manually.
 
-**Create the PR:**
+**Create the PR — GitHub.** Prefer the `gh` CLI (it handles auth via its own login / `GH_TOKEN` / `GITHUB_TOKEN`):
+
+```bash
+gh pr create --base main --head feat/XXX-feature-name \
+  --title "XXX — Feature Name" --body-file <pr-body-file>
+```
+
+If `gh` is unavailable but `GITHUB_TOKEN` is set, fall back to the REST API (parse `OWNER/REPO` from `origin`):
 
 ```bash
 curl -s -X POST \
   -H "Authorization: token $GITHUB_TOKEN" \
   -H "Accept: application/vnd.github.v3+json" \
   "https://api.github.com/repos/OWNER/REPO/pulls" \
-  -d '{
-    "title": "XXX — Feature Name",
-    "head": "feat/XXX-feature-name",
-    "base": "main",
-    "body": "[the full body as described above]"
-  }'
+  -d '{ "title": "XXX — Feature Name", "head": "feat/XXX-feature-name", "base": "main", "body": "[the full body above]" }'
 ```
 
-**If `GITHUB_TOKEN` is not set:** Skip PR creation. Inform the user that the branch was pushed and they can create a PR manually. Mention that setting `GITHUB_TOKEN` enables automatic PR creation.
+**Create the PR — Azure DevOps.** Use the Azure CLI with the `azure-devops` extension. `--detect true` (the default) reads organization/project/repository from the local git remote, so no IDs are hardcoded:
+
+```bash
+az repos pr create --detect true \
+  --source-branch feat/XXX-feature-name --target-branch main \
+  --title "XXX — Feature Name" --description "[the full body above — markdown OK]"
+```
+
+Auth is non-interactive via `AZURE_DEVOPS_EXT_PAT` (a PAT with Code → Read & Write, including Pull Request), or an existing `az login`. If the extension is missing, `az extension add --name azure-devops` installs it.
+
+**Capture the PR number/URL** the tool returns: put it in the CLI summary — it is the `<PR number>` that `/dev:figma-accept --from-pr` consumes.
+
+**Fallback — unknown host, missing CLI, or no token/PAT:** do NOT fail. The branch is already pushed. Report that, print the branch name and a compare/PR URL if one can be derived from `origin`, and tell the user to open the PR manually. Name the credential that would enable automation for their host: `gh` login / `GITHUB_TOKEN` for GitHub, or the `azure-devops` extension + `AZURE_DEVOPS_EXT_PAT` for Azure DevOps.
 
 ### 7. Summary
 
@@ -376,7 +394,7 @@ Print the same summary to the CLI that was included in the PR body:
 - **Amends the last commit** to include the plan move to `done/`
 - **Pushes the branch** after all phases complete
 - **Starts the application** with `./do run` before creating the PR
-- **Creates a PR** via GitHub REST API if `GITHUB_TOKEN` is available, with live URLs in the body (mandatory section — never omitted)
+- **Creates a PR on the detected host** — GitHub (via `gh`, else `GITHUB_TOKEN` REST) or Azure DevOps (via `az repos`) — when its credential is available; otherwise pushes and hands off to a manual PR. Live URLs in the body are a mandatory section — never omitted
 - **Keeps CLI summary and PR body in sync** — same information in both
 
 ### Sub-Agents NEVER:
@@ -393,8 +411,8 @@ This command is fully headless. Every operational scenario has a predefined beha
 
 | Scenario | Behavior |
 |----------|----------|
-| `GITHUB_TOKEN` not set | Push the branch. Skip PR creation. Inform user that setting `GITHUB_TOKEN` enables automatic PRs. |
-| `GITHUB_TOKEN` set but PR creation fails | Inform user of the error. The branch is already pushed — they can create a PR manually. |
+| PR host detected but its CLI/credential is missing (`gh`/`GITHUB_TOKEN`, or `az`+`azure-devops` extension/`AZURE_DEVOPS_EXT_PAT`) | Push the branch. Skip PR creation. Print the branch + a compare/PR URL and name the credential that enables automation for that host. |
+| Unknown git host, or PR creation fails | Inform user of the error/host. The branch is already pushed — they can create a PR manually. |
 | `./do check` fails with code errors | Launch fix sub-agent. Retry verification. Repeat up to 3 cycles, then full stop. |
 | `./do check` fails with infrastructure errors (DNS, network, permissions, missing tools) | Full stop. Inform the user what happened. Do NOT retry. |
 | Frontend phase: UI review returns UI ISSUES | Launch fix sub-agent (frontend mode), re-verify `./do check`, re-run UI review. Up to 3 review-fix cycles, then commit anyway and record remaining issues in the summary/PR. |

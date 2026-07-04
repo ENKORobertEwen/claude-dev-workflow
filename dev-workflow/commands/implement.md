@@ -50,12 +50,15 @@ This is a FRONTEND phase. UI quality matters as much as correctness. The
 governing rule: **derive everything from the design artifacts; for anything not
 derivable, REPORT it — never invent.**
 
+- **You are the final authority on visual fidelity. There is no check after you.** For design-sourced phases the result must match the referenced design frame 100% — a deviation you do not fix will not be fixed by anyone else. Never defer a visible deviation to a later step; there is no later step.
+- **Tests never block a fidelity fix.** If an existing test — including one written in an earlier phase of this same plan — pins something that prevents matching the design (plain-text content where the design shows formatting, specific glyph characters, text vs. vector asset), change the test to match the design; do NOT leave the deviation in place because a test pins the old state. A test you wrote yourself is not evidence the design is wrong. Tests follow the design, never the reverse.
+
 - Invoke the `frontend-design` skill (if available) before writing UI code, and follow its guidance on visual hierarchy, typography, spacing, and avoiding templated defaults.
 - **Design system first.** Before building any primitive, component, or view, establish the design system from `tokens.json` (colors, spacing, text styles, radii) as the project's theme / CSS variables. Everything downstream references these — you cannot reference a token that does not exist yet. If this project has no theme layer yet, create it from the tokens as the first step.
-- **Tokens, not hardcoded values (strict).** Every color/space/typography/radius value MUST reference a token. A measured value that matches NO token is a deviation: report it in the summary/PR — do NOT silently hardcode a raw value (e.g. `15px`, `#3B82F6`).
+- **Tokens, not hardcoded values (strict).** Every color/space/typography/radius value MUST reference a token. A measured value that matches NO existing token is the ONLY thing you may classify as a deviation instead of fixing: report it in your completion report — do NOT silently hardcode a raw value (e.g. `15px`, `#3B82F6`). Every other visible mismatch with the design MUST be fixed, not reported.
 - **Responsive tokens by the recorded rule.** Apply typography and spacing across breakpoints exactly as the UI/UX Spec's responsive scaling rules say — never guess which size belongs at which breakpoint. For *stepped* families, apply the named token mapped to each breakpoint via media queries (e.g. `body-lg-regular` desktop → `body-md-regular` tablet → `body-sm-regular` mobile). For *fluid* families, use the derived `clamp()` token from `tokens.json` verbatim.
 - **Reuse mapped components.** If a piece has a `codeTarget` (from Code Connect or the plan's mapping in `product/design/status.json`), use or extend that component — do NOT build a parallel one. Respect dependency order: design system → primitives → components → layouts → views.
-- **Primitives second, with a browseable preview.** After the design system, build the primitives — and expose them on a browseable preview so they can be visually checked in isolation: Storybook stories if the project uses Storybook, otherwise a simple dev route/page (e.g. `/__design`) rendering each primitive in all its states. Add components to the same preview as you build them. This is what the visual-review loop checks for non-screen pieces. Build it when feasible for the project's setup; if genuinely not feasible, note why in the report.
+- **Primitives second, with a browseable preview.** After the design system, build the primitives — and expose them on a browseable preview so they can be visually checked in isolation: Storybook stories if the project uses Storybook, otherwise a simple dev route/page (e.g. `/__design`) rendering each primitive in all its states. Add components to the same preview as you build them. The preview is the only place non-screen pieces are ever rendered — a piece missing from it is invisible. Build it when feasible for the project's setup; if genuinely not feasible, note why in the report.
 - **Layout = intent, not canvas coordinates.** Translate Figma auto-layout to flex/grid, semantic and fluid. Do NOT use absolute positioning or fixed x/y pixel coordinates from the Figma canvas. Only the breakpoints named in the UI/UX Spec / mapping — never invented ones.
 - **Components are responsive too.** Components, layouts, and views all have breakpoint-specific behavior — implement each across its mapped breakpoints (desktop/tablet/mobile), not just full pages. Build/check the responsive behavior of a component in the browseable preview.
 - **Semantic HTML + accessibility.** Use semantic elements (`<button>`, `<nav>`, headings, labelled controls) — not `<div>` for everything. Implement the a11y requirements from the UI/UX Spec; keyboard-accessible with visible focus states.
@@ -110,7 +113,9 @@ Rules:
 
 ### 4. UI Review Sub-Agent (frontend phases only)
 
-Renders the running application and critiques the UI against the plan's UI/UX Spec. This is the visual equivalent of the verification sub-agent — it catches what `./do check` cannot (looks broken, wrong hierarchy, missing states, not responsive, inaccessible). Instructions to give the sub-agent:
+Renders the running application and critiques the UI against the plan's UI/UX Spec. This is the visual equivalent of the verification sub-agent — it catches what `./do check` cannot (looks broken, wrong hierarchy, missing states, not responsive, inaccessible).
+
+**This reviewer runs blind.** Never give it the implementation sub-agent's report, any findings/audit document, or any list of "known", "accepted", or "reported" deviations — the agent that produced a deviation does not get to decide what the reviewer may see. The reviewer reports EVERY visible deviation; whether a deviation is acceptable is decided exclusively by the human at sign-off (`/dev:figma-accept`), never by any agent in this pipeline. For Figma-sourced phases, pass it the mapped Figma node IDs for this phase's pieces (from the plan's Figma Mapping / `product/design/status.json`) so it can pull reference screenshots itself. Instructions to give the sub-agent:
 
 ```
 You are reviewing the UI produced by the phase just implemented. Use the Playwright browser tools (load their schemas via ToolSearch with query "browser_navigate browser_take_screenshot browser_resize browser_snapshot").
@@ -121,6 +126,12 @@ Setup:
 
 Review, for the screen(s) this phase touched:
 [list the screens/components from the phase and the states from the UI/UX Spec]
+
+[For Figma-sourced phases, additionally:]
+This phase implements Figma-sourced pieces. Their mapped Figma nodes:
+[list piece → Figma node ID(s) per breakpoint]
+
+Pull a reference screenshot for each node via the Figma MCP `get_screenshot` tool (load its schema via ToolSearch with query "select:mcp__claude_ai_Figma__get_screenshot" or by searching "figma screenshot"). These references are your comparison baseline: compare each rendered screen/state against its reference and report EVERY visible deviation — layout, spacing, typography, color, assets (icon/glyph shape and weight, vector vs. text rendering), text formatting (underlines, emphasis, line breaks), and content. Do NOT classify any deviation as known, accepted, or intentional — you have no information about what anyone accepted, and acceptance is not your call. A deviation you can see goes in the list.
 
 For primitive/component phases that have no full screen, review the browseable
 preview page instead (the Storybook URL or the dev route like `/__design`)
@@ -174,6 +185,7 @@ For EACH phase in the plan:
 **a) Launch implementation sub-agent**
 - Provide the phase description with full context
 - For frontend phases, launch it in **frontend mode** (see sub-agent type 1)
+- **For frontend phases, filter the phase text before pasting it:** remove every mention of downstream review stages, visual sign-off, human acceptance, `figma-accept`, or the PR process — even if the plan's phase text mentions them. The implementation sub-agent must believe it is the last instance; knowledge of a later review invites deferring fixes to it.
 - Wait for completion
 
 **b) Launch verification sub-agent**
@@ -189,7 +201,7 @@ For EACH phase in the plan:
 
 After `./do check` passes, and only for frontend phases:
 
-- Launch the **UI review sub-agent** for the screens/states this phase touched. Wait for result.
+- Launch the **UI review sub-agent** for the screens/states this phase touched — blind (see sub-agent type 4): for Figma-sourced phases pass the mapped node IDs; never pass the implementer's report, findings docs, or any deviation list. Wait for result.
 - **UI PASS** → Proceed to commit.
 - **UI ISSUES** → Launch a fix sub-agent with the issue list (in frontend mode), then re-run the verification sub-agent (`./do check` must stay green), then launch the UI review sub-agent again. Repeat up to 3 review-fix cycles. If issues remain after 3 cycles, do NOT block: proceed to commit, and record the remaining UI issues so they surface in the final summary and PR body.
 
@@ -386,7 +398,7 @@ Print the same summary to the CLI that was included in the PR body:
 - **Resumes from where it left off** if the branch already exists
 - **Delegates implementation** to sub-agents (frontend mode for frontend phases)
 - **Delegates verification** to sub-agents
-- **Delegates visual review** to a UI review sub-agent for frontend phases, before committing
+- **Delegates visual review** to a UI review sub-agent for frontend phases, before committing — blind: the reviewer never sees the implementer's report or any list of known/accepted deviations
 - **Delegates error fixing** to sub-agents
 - **Creates commits** after verification passes (and, for frontend phases, after the visual review loop)
 - **Stops on infrastructure failures** — Full stop, inform the user, do NOT ask or retry
@@ -416,6 +428,7 @@ This command is fully headless. Every operational scenario has a predefined beha
 | `./do check` fails with code errors | Launch fix sub-agent. Retry verification. Repeat up to 3 cycles, then full stop. |
 | `./do check` fails with infrastructure errors (DNS, network, permissions, missing tools) | Full stop. Inform the user what happened. Do NOT retry. |
 | Frontend phase: UI review returns UI ISSUES | Launch fix sub-agent (frontend mode), re-verify `./do check`, re-run UI review. Up to 3 review-fix cycles, then commit anyway and record remaining issues in the summary/PR. |
+| Frontend phase: implementer's report lists "known", "accepted", or "reported" deviations | The UI review sub-agent never sees that list — it reviews blind. Any deviation it finds goes through the fix loop like every other UI issue. Only a human can accept a deviation (at sign-off), never the agent that produced it. |
 | Frontend phase: app won't start for UI review | UI review sub-agent reports it could not render. Record as a known issue, proceed to commit. Do NOT block the pipeline. |
 | Phase has no `**Type:**` and isn't obviously UI | Treat as non-frontend: skip the visual review loop. |
 | Frontend phase is Figma-sourced but the global ledger `product/design/status.json` has no matching pieces (`figma-refresh-plan` was never run for that source) | Full stop BEFORE that phase, once, with: "This plan is Figma-sourced — run `/dev:figma-refresh-plan` first to pull the design and create the ledger, then re-run `/dev:implement`." Do NOT improvise, do NOT proceed to guess the design, do NOT repeat the reminder. |

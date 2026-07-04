@@ -1,5 +1,44 @@
 # Changelog — dev plugin
 
+## 2.16.0 — Design-fidelity hardening (learnings from the quote-block audit pilot)
+
+**Problem fixed:** a Figma-sourced implementation passed all checks and the UI
+review, yet visible deviations from the Figma frame survived to human review.
+Root causes were systemic in the command design: (1) the implementer classified
+a visible deviation as "reported" through a too-broad escape hatch; (2) it cited
+a test it had itself written earlier as the reason not to adopt the Figma asset;
+(3) the phase prompt mentioned the downstream human sign-off, so deferring was
+rational; (4) the UI reviewer was told to ignore the implementer's
+"deviation-reported" list — the auditor decided what its own reviewer got to
+see; (5) no plan reviewer ever looked at the design source, so a plan-level
+test-vs-frame contradiction went unseen.
+
+**Changes:**
+- **`/dev:plan` gains Reviewer 6: Design Fidelity** (design-sourced frontend
+  plans only). It uses the Figma MCP (`get_screenshot`, `get_design_context`,
+  `get_metadata`) to check the plan against the actually referenced nodes:
+  verify every design-derived claim, find test-vs-design contradictions,
+  enumerate completeness from the frame outward, and audit any
+  classification/exception rule for loopholes that let a visible deviation
+  survive.
+- **`/dev:plan` ATDD-coverage reviewer:** acceptance tests must not pin
+  implementation details that constrain design fidelity (exact text-node
+  structure, concrete glyph characters, text vs. vector asset). Tests pin
+  behavior and structural invariants; design truth lives in Figma.
+- **`/dev:implement` implementation sub-agent (frontend mode):** the phase
+  prompt is filtered — no mention of downstream reviews, sign-off, or
+  `figma-accept` reaches the implementer. It is told it is the final authority
+  ("a deviation you do not fix will not be fixed by anyone else"), the
+  token-mismatch case is the ONLY reportable deviation, and a test — even a
+  self-written one — never blocks a fidelity fix: the test is changed, not the
+  fix dropped.
+- **`/dev:implement` UI review sub-agent runs blind:** it never sees the
+  implementer's report or any "known/accepted" deviation list. For
+  Figma-sourced phases it pulls reference screenshots of the mapped nodes via
+  the Figma MCP and reports EVERY visible deviation. Whether a deviation is
+  acceptable is decided exclusively by the human at sign-off — never by the
+  agent that produced it.
+
 ## 2.15.0 — Host-aware PR creation (GitHub + Azure DevOps)
 
 **Problem fixed:** `/dev:implement` step 6 was "Create Pull Request (GitHub

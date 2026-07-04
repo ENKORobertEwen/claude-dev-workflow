@@ -461,7 +461,7 @@ How will this feature behave when updating from an older version?
 
 ### 12. Review Plan via Sub-Agents
 
-Before presenting the plan to the user, run an automated review using specialized sub-agents in parallel (four for backend-only plans, five when the plan has a frontend):
+Before presenting the plan to the user, run an automated review using specialized sub-agents in parallel (four for backend-only plans, five when the plan has a frontend, six when the plan is design-sourced — i.e. it has a UI/UX Spec with a Figma Mapping or other design references):
 
 #### Reviewer 1: Feasibility
 
@@ -480,6 +480,7 @@ Checks:
 - Does each implementation phase follow the red-green cycle (implement test → verify failure → implement code → verify pass)?
 - Are acceptance tests testing from the outside-in through public interfaces?
 - Is `./do check` updated to include the acceptance tests?
+- **Design-sourced frontends: do any acceptance tests pin implementation details that constrain design fidelity?** Acceptance tests must NOT pin the exact text-node structure (e.g. "the quote is one contiguous string in a single text node"), concrete glyph characters, or the asset type (text vs. vector/SVG). Such a test blocks a later fidelity fix and forces the implementation away from the design. Tests pin *behavior and structural invariants* (the element exists, is accessible, contains the copy); the design truth — formatting, glyphs, asset choice — lives in Figma, and tests follow Figma, never the reverse.
 
 #### Reviewer 3: Architecture & DDD
 
@@ -513,8 +514,17 @@ Skip this reviewer if the plan has no frontend. Otherwise checks:
 - Is the design direction concrete enough that an implementer won't fall back to templated defaults — without being so rigid that it removes all visual judgment?
 - Do frontend acceptance criteria cover UX (states, responsiveness, a11y), not just behavior?
 
+#### Reviewer 6: Design Fidelity (design-sourced frontend plans only)
+
+Skip this reviewer if the plan has no UI/UX Spec or no design source (Figma Mapping / design references). This reviewer covers the one dimension the other five cannot: **the plan vs. the actual design source**. The other reviewers check the plan against itself and the repo; a plan with a UI/UX Spec is itself a design *transcription* and can be mistranscribed exactly like code. This reviewer gets Figma MCP access — load `get_screenshot`, `get_design_context`, and (if needed) `get_metadata` via ToolSearch — and checks the plan against the actually referenced nodes:
+
+- **Verify every design claim against the real nodes.** Every Figma-derived statement in the plan — fixture/copy texts, node IDs, frame dimensions, content and state descriptions — is checked against the actual node, never taken from the plan text. If the plan says "the frame shows X", look at the frame.
+- **Contradiction check: tests ↔ design.** Does any acceptance-test specification pin something that contradicts the referenced frame or blocks a later fidelity fix (plain text where the frame shows rich-text formatting like underlines → necessarily multiple formatted nodes; text glyphs where the frame uses a vector asset)? Principle: tests follow Figma, never the reverse.
+- **Completeness from the frame's perspective.** Enumerate from the frame outward, NOT from the plan: what does the frame show that the plan does not mention — formatting, assets, variants, states? Plan-outward review can only confirm what the plan already knows; frame-outward review finds what it missed.
+- **Loophole audit.** Does any classification or exception rule in the plan (e.g. a deviation-reported definition) allow a *visible* deviation to survive unresolved? Such rules must be exhaustively narrow — the only legitimate reportable deviation is: a measured value matches no existing token. Any rule broad enough to let an implementer classify a visible mismatch as "reported" instead of fixing it is a finding.
+
 **Process:**
-1. Launch the reviewers in parallel as sub-agents (Reviewer 5 only if the plan has a frontend). Provide each with the full plan text and the relevant codebase context.
+1. Launch the reviewers in parallel as sub-agents (Reviewer 5 only if the plan has a frontend; Reviewer 6 only if the plan is design-sourced). Provide each with the full plan text and the relevant codebase context; Reviewer 6 additionally gets the design-source references (Figma URLs/node IDs from the plan) and uses the Figma MCP tools directly.
 2. Collect all findings.
 3. Synthesize: resolve each finding by updating the plan.
 4. Run one final holistic review sub-agent with fresh eyes on the updated plan. This reviewer checks the whole plan end-to-end, including that the fixes from step 3 didn't introduce new issues.
@@ -559,7 +569,7 @@ The plan is now on main and ready for `/dev:implement` to pick up.
 
 6. **The plan must be decision-complete.** An implementer must be able to execute every phase mechanically. No ambiguity, no judgment calls, no unresolved choices. **One exception:** on frontend phases, the implementer applies design judgment to small unspecified visual details, guided by the UI/UX Spec and the `frontend-design` skill. The plan fixes the design *direction*, system, screens, and states — not every pixel.
 
-7. **The plan is reviewed before the user sees it.** Specialized sub-agent reviewers check feasibility, ATDD coverage, architecture, decision completeness, and — for frontend plans — UI/UX completeness. Findings are fixed before presenting to the user.
+7. **The plan is reviewed before the user sees it.** Specialized sub-agent reviewers check feasibility, ATDD coverage, architecture, decision completeness, and — for frontend plans — UI/UX completeness, plus — for design-sourced plans — design fidelity against the actual Figma nodes. Findings are fixed before presenting to the user.
 
 8. **Plans follow the format defined in step 11.** The plan format is embedded above — do not look for external template files.
 

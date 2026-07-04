@@ -47,7 +47,8 @@ Create a feature plan. Process:
 4. Identifies DDD and ADR implications
 5. For frontend features, decides the design direction with the user and captures a UI/UX Spec (design system, screens, states, responsive, accessibility); for Figma-sourced designs, resolves the Figma mapping (logical pieces ↔ nodes per breakpoint, plus an ignore list) that `/figma-refresh-plan` consumes
 6. Writes a phased plan to `product/plans/todo/`
-7. Reviews the plan with the user until approved
+7. Runs parallel sub-agent reviewers (feasibility, ATDD coverage, architecture, decision completeness; UI/UX completeness for frontend plans; and — for design-sourced plans — a design-fidelity reviewer that checks the plan against the actual Figma nodes via the Figma MCP, including test-vs-design contradictions and escape-hatch loopholes)
+8. Reviews the plan with the user until approved
 
 The plan document is the only output. No code changes, no DDD edits, no ADR creation.
 
@@ -58,7 +59,7 @@ Execute a plan with sub-agent orchestration. The orchestrator:
 2. For each phase: launches an implementation sub-agent, then a verification sub-agent
 3. If verification fails with code errors: launches a fix sub-agent, re-verifies, repeats
 4. If verification fails with infrastructure errors: stops and asks the user
-5. For frontend phases: after `./do check` passes, runs a visual review loop — a UI review sub-agent renders the app with Playwright and critiques it against the plan's UI/UX Spec, then a fix sub-agent resolves issues, until the UI passes (or after 3 cycles, records remaining issues)
+5. For frontend phases: after `./do check` passes, runs a visual review loop — a UI review sub-agent renders the app with Playwright and critiques it against the plan's UI/UX Spec (for Figma-sourced phases: against reference screenshots of the mapped Figma nodes). The reviewer runs blind — it never sees the implementer's report or any "accepted deviation" list — then a fix sub-agent resolves issues, until the UI passes (or after 3 cycles, records remaining issues)
 6. Creates a focused commit per phase
 7. Moves the completed plan to `product/plans/done/`
 

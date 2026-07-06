@@ -1,5 +1,39 @@
 # Changelog — dev plugin
 
+## 2.17.0 — Check-exempt commits: skip provably redundant `./do check` runs
+
+**Problem fixed:** `./do check` is expensive (time), and the verification rule
+("must pass before ANY commit, no exceptions") forced a full run even for
+commits that never touch a check input — plan documents, ADRs, DDD docs, design
+snapshots, the design ledger. Those runs are pure waste: the check is a
+function of its inputs, and if no changed file feeds the pipeline, the result
+cannot have changed.
+
+**Design constraint:** an exemption must not become an escape hatch (the exact
+failure mode 2.16.0 closed for design fidelity). It is therefore defined by
+mechanically checkable facts only — path membership of the actual changed
+files — never by judgment ("small", "trivial", "doesn't touch code").
+
+**Changes:**
+- **`verification-required` skill, new rule 0:** a commit is check-exempt iff
+  EVERY staged file (`git diff --cached --name-only`) matches a check-exempt
+  glob. Plugin default: `product/**`. Project additions: globs declared in the
+  project CLAUDE.md under `### Check-Exempt Paths` (additive only). Fail-closed
+  — one non-matching file, a missing declaration, or any doubt → full check.
+  Machine-readable files in an exempt commit (`.json`/`.yaml`) must still parse
+  (`jq empty`). Exempt commits are announced explicitly ("check-exempt: …").
+- **`/dev:implement`:** the orchestrator decides per phase on the actual
+  `git status` file list (never on what the phase text claims) and skips the
+  verification sub-agent for exempt phases — typically DDD, ADR, and plan-only
+  phases. New hardcoded operational decision; the NEVER-rule "skips
+  verification" now names the mechanical exemption as its only carve-out.
+- **`/dev:plan` step 14:** the plan commit is explicitly covered by the
+  exemption (`product/**`) instead of silently ignoring the verification rule.
+- **CLAUDE.md template + `/dev:bootstrap`:** the Verification Rule section
+  documents the exemption and a new `### Check-Exempt Paths` section lets each
+  project declare additional globs; bootstrap fills `(none beyond the default)`
+  for fresh projects.
+
 ## 2.16.0 — Design-fidelity hardening (learnings from the quote-block audit pilot)
 
 **Problem fixed:** a Figma-sourced implementation passed all checks and the UI

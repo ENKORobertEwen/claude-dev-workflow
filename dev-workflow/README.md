@@ -8,7 +8,7 @@ Every project using this plugin follows the same workflow:
 
 1. **Plan** — Describe what you want to build. `/plan` creates a phased implementation plan that includes DDD documentation updates, architecture decision records, and code changes.
 2. **Implement** — `/implement` executes the plan phase by phase, delegating work to sub-agents, verifying with `./do check` after each phase, and creating focused commits.
-3. **Verify** — `./do check` must pass before every commit. No exceptions.
+3. **Verify** — `./do check` must pass before every commit that touches any check input. Commits confined to check-exempt paths (`product/**` plus project-declared globs) skip the provably redundant run.
 
 ### Domain-Driven Design
 
@@ -92,7 +92,8 @@ Two channels: a CLI command (`/figma-accept <piece>`, `--all`, or `--from-pr <n>
 ### `verification-required`
 
 Enforces `./do check` before any commit:
-- `./do check` is mandatory, no exceptions
+- `./do check` is mandatory for every commit that touches any check input
+- The single exemption is mechanical: a commit skips the check iff EVERY changed file matches a check-exempt glob — default `product/**`, plus project globs declared in CLAUDE.md under `### Check-Exempt Paths`. Fail-closed; "small change" is never a criterion
 - Infrastructure failures = full stop, ask user for help
 - Code failures = fix and re-verify until passing
 - No partial verification (`./do lint` alone is not enough)

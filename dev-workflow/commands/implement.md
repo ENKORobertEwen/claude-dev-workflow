@@ -188,7 +188,13 @@ For EACH phase in the plan:
 - **For frontend phases, filter the phase text before pasting it:** remove every mention of downstream review stages, visual sign-off, human acceptance, `figma-accept`, or the PR process — even if the plan's phase text mentions them. The implementation sub-agent must believe it is the last instance; knowledge of a later review invites deferring fixes to it.
 - Wait for completion
 
-**b) Launch verification sub-agent**
+**b) Launch verification sub-agent — unless the phase is check-exempt**
+
+Before launching, check whether this phase's changes are check-exempt: run `git status --porcelain` and collect every changed/untracked file. The phase is exempt **iff EVERY file** matches a check-exempt glob — plugin default `product/**`, plus any globs the project CLAUDE.md declares under `### Check-Exempt Paths`. Decide on the actual file list, never on what the plan's phase text claims to change.
+
+- **Exempt** (typical for DDD, ADR, and plan-only phases) → skip the verification sub-agent; `./do check`'s inputs are untouched, its result cannot have changed. If the changes include `.json`/`.yaml` files, verify they parse (`jq empty`) before committing. Note "check-exempt" in the phase's commit message body and the summary.
+- **Not exempt** (any single non-matching file, no matter how small the change) → launch the verification sub-agent as below. Fail-closed: missing CLAUDE.md section or any doubt → verify.
+
 - Wait for result
 
 **c) Handle verification result**
@@ -389,7 +395,7 @@ Print the same summary to the CLI that was included in the PR body:
 - **Runs any shell commands** — Except `git` commands for branch/commit operations, `curl` for PR creation, `./do run` to start the app, and `mv` for moving the plan file
 - **Implements code changes** — Delegate to implementation sub-agents
 - **Fixes errors** — Delegate to fix sub-agents
-- **Skips verification** — Every phase must pass `./do check` before committing
+- **Skips verification** — Every phase that touches any non-exempt path must pass `./do check` before committing. The only skip is the mechanical check-exempt rule (ALL changed files match `product/**` or the project's declared Check-Exempt Paths) — never a judgment call like "small change" or "docs-ish"
 - **Reviews UI itself** — Delegate visual review of frontend phases to the UI review sub-agent (it drives Playwright, not the orchestrator)
 
 ### The Orchestrator ALWAYS:
@@ -425,6 +431,7 @@ This command is fully headless. Every operational scenario has a predefined beha
 |----------|----------|
 | PR host detected but its CLI/credential is missing (`gh`/`GITHUB_TOKEN`, or `az`+`azure-devops` extension/`AZURE_DEVOPS_EXT_PAT`) | Push the branch. Skip PR creation. Print the branch + a compare/PR URL and name the credential that enables automation for that host. |
 | Unknown git host, or PR creation fails | Inform user of the error/host. The branch is already pushed — they can create a PR manually. |
+| Phase changes only check-exempt paths (every changed file matches `product/**` or a CLAUDE.md `### Check-Exempt Paths` glob) | Skip the verification sub-agent — the check result cannot have changed. Parse-guard any `.json`/`.yaml` in the commit (`jq empty`). Note "check-exempt" in the commit body. One non-matching file → full verification. Fail-closed on any doubt. |
 | `./do check` fails with code errors | Launch fix sub-agent. Retry verification. Repeat up to 3 cycles, then full stop. |
 | `./do check` fails with infrastructure errors (DNS, network, permissions, missing tools) | Full stop. Inform the user what happened. Do NOT retry. |
 | Frontend phase: UI review returns UI ISSUES | Launch fix sub-agent (frontend mode), re-verify `./do check`, re-run UI review. Up to 3 review-fix cycles, then commit anyway and record remaining issues in the summary/PR. |

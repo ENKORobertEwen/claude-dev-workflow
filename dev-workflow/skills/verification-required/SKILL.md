@@ -1,19 +1,33 @@
 ---
 name: verification-required
-description: Enforces that ./do check must pass before any commit. Use whenever creating commits or finishing implementation work.
+description: Enforces that ./do check must pass before any commit, except commits whose changed files ALL match check-exempt paths (product/** plus project-declared globs). Use whenever creating commits or finishing implementation work.
 ---
 
 # Verification Required Skill
 
 ## Purpose
 
-This skill enforces that `./do check` MUST pass before any commits are made. There are NO exceptions.
+This skill enforces that `./do check` MUST pass before any commits are made. The single exemption is defined mechanically in rule 0 — everything else has NO exceptions.
 
 ## Rules
 
+### 0. The ONLY exemption: check-exempt commits
+
+`./do check` is a pure function of its inputs. If no changed file is an input to the check pipeline, the result cannot have changed — re-running it is provably redundant. That is the only basis for skipping it, and it is decided by path match, never by judgment:
+
+1. Determine the exact file set of the commit: `git diff --cached --name-only` (stage everything first, then decide).
+2. The commit is exempt **iff EVERY file** matches a check-exempt glob:
+   - **Plugin default:** `product/**` — plans, DDD docs, ADRs, design snapshots and the design ledger. The build never consumes these; commands transcribe them into code, and that transcription is a separate (checked) commit.
+   - **Project additions:** the globs listed in the project CLAUDE.md under `### Check-Exempt Paths`. Additive only — a project can widen the exemption, never narrow `./do check` itself.
+3. **Fail-closed.** One non-matching file → full `./do check`. No CLAUDE.md section, malformed globs, any doubt about a path → full `./do check`. Mixed commits are never exempt — do not split a commit just to dodge verification of the code part; the code part still gets its full check.
+4. **Judgment is not a criterion.** "Small", "trivial", "docs-only-ish", "doesn't touch the logic", "can't possibly break anything" — none of these qualify. Only the path match counts.
+5. **Cheap guard for machine-readable files.** If the exempt commit contains `.json`/`.yaml`/`.yml` files (e.g. `product/design/status.json`), verify they parse before committing (`jq empty <file>`, or the YAML equivalent). A malformed ledger breaks the workflow even though it never touches the build.
+
+When a commit is exempt, say so explicitly in your report ("check-exempt: all N files under product/**") — silence looks like a skipped check.
+
 ### 1. `./do check` is MANDATORY
 
-Before creating ANY commit, you MUST run `./do check` and it MUST pass completely. This is non-negotiable.
+Before creating ANY non-exempt commit (rule 0), you MUST run `./do check` and it MUST pass completely. This is non-negotiable.
 
 Always capture output to a unique log file using `tee`:
 
@@ -69,3 +83,5 @@ The `./do check` command runs the full verification pipeline for the project. Pa
 1. Integration tests catch issues that unit tests miss
 2. The full pipeline validates the complete build and deployment flow
 3. Skipping `./do check` means shipping unverified code
+
+The check-exempt rule (rule 0) does not weaken this: it only skips runs whose result is already known, because none of the commit's files feed the pipeline. The assumption behind the `product/**` default is that the build never reads `product/` directly — the methodology transcribes design/docs content into code via commands, and those code commits are fully checked. If a project breaks that assumption (its build consumes `product/` files at build time), it must not rely on the default exemption.

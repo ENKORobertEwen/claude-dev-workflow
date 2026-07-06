@@ -553,6 +553,8 @@ Once the user approves the plan:
 2. Commit: `Plan: XXX — Feature Name`
 3. Push to main: `git push origin main`
 
+No `./do check` is needed here: the commit touches only `product/**`, which is check-exempt under the verification rule (the check pipeline never consumes it). This is the mechanical path-based exemption, not a judgment call.
+
 The plan is now on main and ready for `/dev:implement` to pick up.
 
 ## Critical Rules

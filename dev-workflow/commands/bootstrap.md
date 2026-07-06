@@ -202,6 +202,8 @@ Describe how contexts communicate:
 
 Create `CLAUDE.md` in the project root. Fill in the placeholders from the conversation. All other sections are used as-is.
 
+For `{{CHECK_EXEMPT_GLOBS}}`: a fresh project has no extra documentation trees yet — fill in `(none beyond the default)` without asking. If the conversation surfaced obvious doc-only paths (e.g. a planned `docs/` site), list those globs instead. Only paths the build/test pipeline provably never reads belong here.
+
 ````markdown
 # Claude Guide for {{PROJECT_NAME}}
 
@@ -329,7 +331,15 @@ Use `/dev:implement` to execute plans. The implementation process:
 
 ### Verification Rule
 
-**`./do check` must pass before every commit.** No exceptions. No partial substitutes (`./do lint` alone, `./do build` alone, etc.).
+**`./do check` must pass before every commit that touches any check input.** No partial substitutes (`./do lint` alone, `./do build` alone, etc.).
+
+The single exemption is mechanical, never judgment-based: a commit may skip `./do check` **iff every changed file** matches a check-exempt glob (default `product/**`, plus the project globs below). One non-matching file → full check. "Small", "trivial", or "doesn't touch code" are never criteria — only the path match counts. Machine-readable files in an exempt commit (`.json`/`.yaml`) must still parse (`jq empty`).
+
+### Check-Exempt Paths
+
+Files that never feed `./do check` in this project (additions to the default `product/**`):
+
+- {{CHECK_EXEMPT_GLOBS}}
 
 ### Acceptance Test Driven Development
 

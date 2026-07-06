@@ -100,7 +100,15 @@ Use `/dev:implement` to execute plans. The implementation process:
 
 ### Verification Rule
 
-**`./do check` must pass before every commit.** No exceptions. No partial substitutes (`./do lint` alone, `./do build` alone, etc.).
+**`./do check` must pass before every commit that touches any check input.** No partial substitutes (`./do lint` alone, `./do build` alone, etc.).
+
+The single exemption is mechanical, never judgment-based: a commit may skip `./do check` **iff every changed file** matches a check-exempt glob (default `product/**`, plus the project globs below). One non-matching file → full check. "Small", "trivial", or "doesn't touch code" are never criteria — only the path match counts. Machine-readable files in an exempt commit (`.json`/`.yaml`) must still parse (`jq empty`).
+
+### Check-Exempt Paths
+
+Files that never feed `./do check` in this project (additions to the default `product/**`):
+
+- {{CHECK_EXEMPT_GLOBS}} <!-- e.g. `docs/**`, `*.md`, `.github/**/*.md` — or "(none beyond the default)". Only list paths the build/test pipeline provably never reads. -->
 
 ### Acceptance Test Driven Development
 

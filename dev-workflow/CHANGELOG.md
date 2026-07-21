@@ -1,5 +1,25 @@
 # Changelog — dev plugin
 
+## 2.21.0 — Neues Command /dev:feature (fachliches Refinement → Work Items)
+
+**Problem fixed:** Between "idea" and `/dev:plan` there was no command: business-level
+refinement (scope, rules, grey zones, gates) happened ad hoc in chat, and work items were
+created by hand — with varying description/criteria quality. `/dev:plan` then had to
+re-ask business questions.
+
+**Changes:**
+- New `commands/feature.md`: develops a feature idea (or refines an existing Feature work
+  item) on the business level — one question at a time, evidence-based codebase scouting,
+  project gates from CLAUDE.md — and stores the result as work items: Feature + PBIs as
+  user stories, descriptions and acceptance criteria in the proper fields
+  (`Microsoft.VSTS.Common.AcceptanceCriteria` exists on Feature and PBI in Scrum).
+  Approval gate before anything is written; read-back verification (hierarchy, iteration,
+  encoding) after. Definition of done: `/dev:plan` needs no further business decisions.
+- Conventions come from the project's tracker doc (default
+  `product/docs/azure-devops-structure.md`); if missing, the command asks org/project and
+  seeds the doc. States stay `New` — `Approved`/plan tags remain `/dev:plan`'s job.
+- Model pinning like plan.md: Fable 5 (frontmatter + model guard).
+
 ## 2.20.0 — Infrastruktur-Dokumentation als Methodik-Bestandteil
 
 **Problem fixed:** Bootstrap scaffolds DDD/ADR/plans but no home for

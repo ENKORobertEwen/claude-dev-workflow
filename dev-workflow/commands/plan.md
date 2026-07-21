@@ -77,7 +77,22 @@ If the feature involves an architectural decision (one that was discussed and de
 
 The ADR captures the decision, rationale, and consequences. It is documented as a phase in the plan. It is NOT created now.
 
-### 6. Identify `./do` Script Changes
+### 5a. Identify Infrastructure Implications
+
+`product/infra/infrastructure.md` (plus optional `product/infra/runbooks/`) is the single
+source of truth for environments, hosting, CI/CD pipelines, external services, and secret
+*locations* (never values). It is maintained by `/dev:plan` exactly like the DDD docs and
+ADRs. Check whether the feature touches any of:
+
+- **Environments/config** — new environment variables, config keys, deployment settings
+- **Pipelines** — new/changed build or deploy pipelines, triggers, artifacts
+- **External services** — a new third-party dependency, API, or integration
+- **Secrets** — a new secret (document WHERE it lives, never its value)
+- **Operations** — new runbook steps (deploy order, migration to run, cache to clear)
+
+If yes, the plan includes a phase updating `product/infra/` (it is check-exempt via
+`product/**`). If the project predates this convention and keeps infrastructure docs
+elsewhere (see its CLAUDE.md), update those instead — do not create a parallel structure.
 
 The `./do` script is the project's single entry point for all development tasks. Check whether the plan requires changes to `./do`:
 
@@ -427,6 +442,26 @@ Record the architectural decision made for this feature.
 
 ---
 
+## Phase N: Infrastruktur — {{Update infrastructure doc}}
+
+**Type:** Tooling
+
+### Goal
+
+Keep `product/infra/` in sync with what this feature changes operationally.
+
+### Changes
+
+| File | Action | Details |
+|------|--------|---------|
+| `product/infra/infrastructure.md` | Modify | {{new env vars/config keys, pipeline changes, external service, secret location, runbook step — specific entries}} |
+
+### Verification
+
+- Review for accuracy; no secret values in the document
+
+---
+
 ## Phase N: `./do` Script Updates
 
 **Type:** Tooling
@@ -510,6 +545,7 @@ Checks:
 - Are bounded context boundaries respected?
 - Should a new ADR be created for any decisions?
 - Are the `./do` script changes consistent with its philosophy (self-contained, auto-installing)?
+- Are infrastructure implications identified (step 5a) — does the plan update `product/infra/` (or the project's documented equivalent) when it touches environments, pipelines, config, external services, or secrets?
 
 #### Reviewer 4: Decision Completeness
 

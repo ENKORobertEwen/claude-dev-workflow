@@ -1,5 +1,24 @@
 # Changelog — dev plugin
 
+## 2.20.0 — Infrastruktur-Dokumentation als Methodik-Bestandteil
+
+**Problem fixed:** Bootstrap scaffolds DDD/ADR/plans but no home for
+infrastructure/operations knowledge (environments, hosting, CI/CD, external
+services, secret locations). Real projects then invent unstructured places for
+it (CustomerWallet: ad-hoc product/docs/) that no command maintains.
+
+**Changes:**
+- bootstrap.md: new conversational step 5 (deployment target/environments —
+  "still open" is a valid answer), new `product/infra/infrastructure.md`
+  starter (sections: Umgebungen, Hosting, CI/CD, Externe Dienste,
+  Secrets-Fundorte — never values, Monitoring, Runbooks), CLAUDE.md template
+  gets the infra tree, a "Know the Infrastructure" read step and a pre-change
+  question; steps renumbered (gap at 5 closed, generation steps 7–11).
+- plan.md: new step 5a "Identify Infrastructure Implications" (env/config,
+  pipelines, external services, secrets, runbooks → plan phase updating
+  product/infra/; existing projects use their documented equivalent), infra
+  phase template in the plan format, Reviewer 3 checks it.
+
 ## 2.19.0 — Frische Sub-Agents + deterministisches Kontext-Paket + Modell-Pinning
 
 **Problem fixed (1/2 — gekoppelt):** Orchestrators sometimes CONTINUED sub-agents

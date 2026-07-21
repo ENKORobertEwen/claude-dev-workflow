@@ -48,6 +48,16 @@ For example, if the project has a backend and a frontend:
 
 Present the assignment to the user as a done deal: "I've assigned PORT1/HOST1 to the server and PORT2/HOST2 to the client." The user can correct if needed, but don't ask — suggest.
 
+### 5. Infrastructure & Deployment Target
+
+Ask: "Where should this run in production — a cloud provider, on-prem, or still open? Are there
+already environments (test/prod), CI/CD pipelines, or external services I should know about?"
+
+Record whatever is known; for a greenfield project "still open" is a perfectly fine answer —
+the starter file (step 9) then keeps its placeholders. Do NOT press for decisions the user
+hasn't made yet; infrastructure knowledge accumulates through `/dev:plan` (which maintains
+`product/infra/` the same way it maintains DDD docs and ADRs).
+
 ### 6. Create Directory Structure
 
 Create the following files and directories:
@@ -63,6 +73,8 @@ product/
 │       └── .gitkeep
 ├── ADR/
 │   └── .gitkeep
+├── infra/
+│   └── infrastructure.md
 └── plans/
     ├── todo/
     │   └── .gitkeep
@@ -198,7 +210,63 @@ Describe how contexts communicate:
 - Event-driven / Direct calls
 ````
 
-### 9. Generate CLAUDE.md
+### 9. Generate `product/infra/infrastructure.md`
+
+Create the infrastructure documentation starter. Fill in what the conversation (step 5)
+surfaced; keep placeholders for everything still open.
+
+````markdown
+# Infrastruktur & Betrieb
+
+Single source of truth for where this project runs and how it gets there. Maintained by
+`/dev:plan` — any feature that touches environments, pipelines, config, or external services
+includes a phase updating this document.
+
+> **Security rule:** This document names WHERE secrets live (vault, secret store, pipeline
+> variables, user secrets) — it NEVER contains secret values, connection strings, or keys.
+
+---
+
+## Umgebungen
+
+| Umgebung | Zweck | URL(s) | Deployt von (Branch/Trigger) |
+|----------|-------|--------|------------------------------|
+| <!-- z. B. dev / test / prod --> | <!-- --> | <!-- --> | <!-- --> |
+
+## Hosting / Laufzeit
+
+<!-- Wo läuft was: Anbieter, Dienste/Ressourcen, Regionen, Skalierung. "Noch offen" ist ein
+gültiger Stand — dann hier vermerken, was entschieden werden muss. -->
+
+## CI/CD-Pipelines
+
+| Pipeline | Auslöser | Baut/Deployt | Definition |
+|----------|----------|--------------|------------|
+| <!-- --> | <!-- --> | <!-- --> | <!-- Pfad/Link --> |
+
+## Externe Dienste
+
+| Dienst | Zweck | Zugang/Konfiguration (Fundort, keine Werte!) |
+|--------|-------|----------------------------------------------|
+| <!-- --> | <!-- --> | <!-- --> |
+
+## Secrets — Fundorte
+
+| Secret | Liegt in | Benötigt von |
+|--------|----------|--------------|
+| <!-- Name/Zweck --> | <!-- z. B. Key Vault X, Pipeline-Variable, User Secrets --> | <!-- --> |
+
+## Monitoring & Alerts
+
+<!-- Dashboards, Alert-Regeln, Log-Ziele — sobald vorhanden. -->
+
+## Runbooks
+
+<!-- Betriebsabläufe (Deploy, Rollback, Wartung) — je Ablauf ein Abschnitt oder eine Datei
+unter product/infra/runbooks/. -->
+````
+
+### 10. Generate CLAUDE.md
 
 Create `CLAUDE.md` in the project root. Fill in the placeholders from the conversation. All other sections are used as-is.
 
@@ -228,6 +296,9 @@ product/
 ├── ADR/                          # Architecture Decision Records
 │   └── (decision records)
 │
+├── infra/                        # Infrastructure & operations (environments, pipelines,
+│   └── infrastructure.md         #   external services, secret locations — never values)
+│
 └── plans/
     ├── todo/                     # Plans awaiting implementation
     └── done/                     # Completed plans (historical reference)
@@ -249,6 +320,12 @@ Review `product/ADR/` for architecture decisions. Don't contradict established p
 ### 3. Check for Pending Plans
 
 Look in `product/plans/todo/` for any plans awaiting implementation.
+
+### 4. Know the Infrastructure
+
+`product/infra/infrastructure.md` describes environments, hosting, CI/CD pipelines, external
+services, and where secrets live (never their values). Read it before any change that touches
+deployment, configuration, or an external service — and keep it current via `/dev:plan`.
 
 ## Monorepo Structure
 
@@ -356,9 +433,10 @@ Before making significant changes, ask:
 3. Should this be a new plan document first?
 4. Have I read the existing code I'm modifying?
 5. Does this maintain the simplicity principle?
+6. Does this touch environments, pipelines, config, or external services — and is `product/infra/` updated accordingly?
 ````
 
-### 10. Create Starter `./do` Script
+### 11. Create Starter `./do` Script
 
 Create `./do` in the project root with this content. All command bodies are placeholders — `/dev:plan` will fill these in as part of the first feature plan.
 
@@ -458,7 +536,7 @@ case "${1:-}" in
 esac
 ````
 
-### 11. Initialize Git Repository
+### 12. Initialize Git Repository
 
 Initialize a git repository and create the initial commit:
 
@@ -466,7 +544,7 @@ Initialize a git repository and create the initial commit:
 2. Stage all created files with `git add`
 3. Create an initial commit with a message like: `Bootstrap project with dev-workflow methodology`
 
-### 12. Summary
+### 13. Summary
 
 Report what was created:
 
@@ -480,6 +558,7 @@ Created:
 - product/DDD/context-map.md — Bounded context map (starter)
 - product/DDD/contexts/.gitkeep
 - product/ADR/.gitkeep
+- product/infra/infrastructure.md — Infrastructure & operations doc (starter)
 - product/plans/todo/.gitkeep
 - product/plans/done/.gitkeep
 - Initialized git repository with initial commit
@@ -501,5 +580,5 @@ Start by describing your first feature and I'll help you plan it."
 3. **Be conversational.** Ask questions, understand the project, help the user think through their idea.
 4. **Don't over-scaffold.** Create the structure and starters, not the implementation. The project grows through `/dev:plan` and `/dev:implement`.
 5. **Empty directories get `.gitkeep`.** So they can be tracked in git.
-6. **File formats are embedded above.** Do not look for external template files — the exact content for each generated file is defined in steps 7–10.
+6. **File formats are embedded above.** Do not look for external template files — the exact content for each generated file is defined in steps 7–11.
 7. **Always create a git repo and initial commit.** The project should be version-controlled from the start.

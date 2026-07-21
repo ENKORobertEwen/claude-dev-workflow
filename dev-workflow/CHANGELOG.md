@@ -9,6 +9,14 @@ Genau das Risiko, das die Regel verhindern soll. Beobachtet in einer Session, di
 je einzeln gruene Aufgaben zu einem einzigen uncommitteten Klumpen anwachsen liess.
 
 **Changes:**
+- **Ein Task = ein Commit**, standardmaessig und ohne Rueckfrage, direkt beim Schliessen des
+  Items. Das Warten auf einen „zusammenhaengenden Block" war genau die Mechanik, die den
+  grossen uncommitteten Baum erzeugt hat.
+- **Keine Commit-Verknuepfung am Work Item waehrend der Session.** Ein „Fixed in Commit"-Link
+  verweist auf ein Commit-Objekt im *Server*-Repo; solange der Commit nur lokal liegt, existiert
+  es dort nicht. Die Plattform validiert die SHA nicht, der Link liesse sich also anlegen und
+  zeigte ins Leere. Verknuepft wird nach dem Push, in einem Durchgang beim Session-Ende
+  (Abschluss-Liste um diesen Schritt erweitert).
 - Neuer Abschnitt „The verification gate for this mode" mit drei Stufen: waehrend der Iteration
   nichts, beim **lokalen Commit** das schmale Ziel des beruehrten Bereichs plus die Guards, die
   es nicht mitlaeuft, beim **Push/PR/Session-Ende** das volle Gate.

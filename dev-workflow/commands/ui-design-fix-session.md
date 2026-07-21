@@ -216,11 +216,27 @@ When the user signals the end:
 1. Confirm no Task is left in `In Progress`.
 2. Run the project's **full verification gate** (e.g. `./do check`) and get it green. If it is
    red, fix it or report precisely what is red — do not commit over it.
-3. Commit and integrate per the project's branching rules, referencing the parent work item.
-4. Summarise: Tasks done, Tasks parked, and anything still open.
+3. Commit anything still uncommitted and integrate per the project's branching rules,
+   referencing the parent work item.
+4. **Push, then wire the commits to their Tasks** — this is the point at which the links
+   resolve, and the reason they were not created earlier. For each Task closed during the
+   session, attach its commit to the work item the way the project documents it, and follow
+   whatever the project's work-item lifecycle requires (PR links, states).
+5. Summarise: Tasks done, Tasks parked, and anything still open.
 
-**Commit during the session, not only at the end.** A long session accumulates a large
-unverified working tree; propose an intermediate commit whenever a coherent block is green.
+**Commit after every closed Task — by default, without asking.** One Task is one commit. Do it
+as part of closing the item, in the same breath as setting the state to `Done`: the narrow check
+has just passed, the change is small, and its scope is exactly one reported deviation. Waiting
+for "a coherent block" is what produces the large uncommitted tree this rule exists to prevent.
+
+Reference the Task in the commit message so the two can be matched later. Fold a Task's commit
+into the previous one only when the item turned out to be a correction of the item before it.
+
+**Do not link commits to work items during the session.** A "fixed in commit" link is a
+reference to a commit object *in the server repository*; while the commit is local only, that
+object does not exist there. The platform will not validate the SHA, so the link can be created
+— and will point at nothing. Wire commits to their Tasks **after pushing**, in one pass, as part
+of ending the session. Until then the commit message is the link.
 
 ### The verification gate for this mode
 

@@ -1,5 +1,27 @@
 # Changelog — dev plugin
 
+## 2.23.0 — ui-design-fix-session: Orchestrator bleibt beim Nutzer, ein langlebiger Umsetzungs-Agent
+
+**Problem fixed:** Der Hauptagent steckte waehrend Umsetzung und Verifikation fest; neue
+Meldungen des Nutzers landeten mitten in laufenden Werkzeugaufrufen. Ausserdem war offen, wer
+was ausfuehrt.
+
+**Changes:**
+- Rollentrennung: der Hauptagent **orchestriert und bleibt beim Nutzer**; die Umsetzung samt
+  Verifikation laeuft in einem Sub-Agenten.
+- Work-Item-Aufrufe macht der Hauptagent **inline** — bewusst *kein* eigener DevOps-Agent: ein
+  Statuswechsel ist ein schneller Aufruf, das Board ist die Aufzeichnung der Sitzung und darf
+  nicht von einem zusaetzlichen Fehlerpfad abhaengen.
+- **Ein langlebiger** Umsetzungs-Agent statt eines frischen je Task, mit ausdruecklich als
+  solcher markierter Abweichung von `/dev:implement`: hier ist der angesammelte Kontext der
+  Zweck, nicht das Risiko. Neustart-Regel, falls er driftet.
+- **Warteschlange:** Meldungen waehrend laufender Arbeit werden **sofort als Task angelegt**
+  (Sichtbarkeit auf dem Board), aber erst nach Abschluss des offenen Punktes beauftragt. Nie
+  zwei Umsetzungs-Agenten gleichzeitig — gemeinsamer Arbeitsbaum, ein Dev-Server.
+- **Belegpflicht:** der Agent liefert geaenderte Dateien, Pruefausgaben und den letzten
+  Build-Status zurueck; der Hauptagent prueft stichprobenartig nach, statt nur weiterzureichen.
+- Kontextpaket beim Beauftragen, damit der Agent Ermitteltes nicht neu herleitet.
+
 ## 2.22.1 — /dev:ui-design-fix-session: Eltern-Work-Item wird aufgeloest statt angenommen
 
 **Problem fixed:** Das Command setzte voraus, dass die uebergebene ID bereits ein taugliches

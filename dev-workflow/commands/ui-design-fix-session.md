@@ -55,6 +55,60 @@ State clearly which work item ended up as the parent before the first report com
 4. State the working rules back to the user in three lines: one item at a time, each becomes a
    Task, backend work gets parked. Then wait.
 
+## Execution model: two roles, one writer
+
+You are the **orchestrator**. You stay with the user at all times — you must never be the one
+stuck inside a long build so that their next report has to wait. Implementation runs in a
+sub-agent.
+
+**You do yourself, inline:** everything work-item related (create, set state, link) and every
+exchange with the user. A work item state change is a single fast call, and the board is the
+record of this session — it must be right at the moment it is set, not repaired later by a
+helper that may fail. Do **not** spawn an agent for it.
+
+**The implementation agent does:** the code change and its verification.
+
+### One long-lived implementation agent
+
+Spawn **one** implementation agent for the session and **keep it alive across tasks**
+(continue it rather than starting a new one). The items in this mode are small corrections,
+and re-reading the design reference, the styling contract and the primitives inventory for
+every two-line fix costs more than the fix.
+
+> This deliberately deviates from `/dev:implement`, which mandates a fresh agent per phase.
+> That rule protects long, independent implementation phases from context bleed. Here the
+> opposite is wanted: the accumulated knowledge of the design and of what was already changed
+> is the point. The deviation is scoped to this command.
+
+**Restart it if it drifts** — if it starts contradicting earlier findings, re-solving settled
+questions, or its reports get vague, drop it and start a fresh one with a short summary of
+what has been decided so far. A stale agent is worse than a cold one.
+
+**Never run two implementation agents at once.** They would write to the same working tree —
+in particular the shared theme/base files — and to a single dev server, which makes both file
+state and build results unattributable.
+
+### The queue
+
+When a report arrives while an item is still open:
+
+1. **Create its Task immediately** and leave it in `To Do`. The user sees it on the board at
+   once, which is what keeps them unblocked.
+2. **Do not dispatch it** until the current item is reported done.
+3. Then set it to `In Progress` and hand it to the agent.
+
+Tell the user briefly that you queued it. Never silently drop a report because you were busy.
+
+### Evidence, not assurances
+
+The implementation agent must return, for every task: **which files it changed**, the
+**output of the checks it ran**, and confirmation that the **latest** build is clean. A claim
+of "done" without that is not a result.
+
+You are accountable for what you report to the user, not the agent. Spot-check its claims —
+at minimum that the files it names actually changed and that the last build really is green.
+Relaying an unverified report is the failure this rule exists to prevent.
+
 ## The loop
 
 For each thing the user reports:
@@ -79,10 +133,15 @@ Read the design reference for the concrete value (colour, size, spacing, icon pa
 If you cannot find it, say so and ask. **Never infer a value from a screenshot** and never
 explain a gap with an assumption you have not checked — verify, or say you did not.
 
-### 3. Implement at the right tier
+### 3. Hand it to the implementation agent
 
-Fix the **cause**, not the symptom, and put the change where the project's styling contract
-says it belongs:
+Dispatch the task with a **context package** — do not make the agent re-derive what you
+already know: the target value you looked up in step 2, the tier rule that applies, the
+relevant part of the styling contract, and which primitives already exist. On later tasks
+this shrinks to the delta, since the agent still holds the rest.
+
+The agent fixes the **cause**, not the symptom, and puts the change where the project's
+styling contract says it belongs:
 
 - A value used by more than one screen belongs in the **theme/token layer**, never in a page.
 - A control that appears on more than one screen belongs in a **shared component/primitive**,
@@ -99,9 +158,10 @@ it silently affects every other screen, which is usually intended but must be vi
 
 ### 4. Verify before you report
 
-Run the project's fast checks for the area you touched (lint, unit tests, any style/architecture
-guards) and confirm the app rebuilt cleanly. **Do not report an item as done on the strength of
-having edited a file.** If a check is red, fix it or report it as not done.
+The agent runs the project's fast checks for the area it touched (lint, unit tests, any
+style/architecture guards) and confirms the app rebuilt cleanly — and returns that output as
+evidence. **Never report an item as done on the strength of an edit having been made.** If a
+check is red, it gets fixed or the item is reported as not done.
 
 Note that a dev server log contains the errors of *earlier* builds too — confirm the **latest**
 build is clean, not merely that a clean build appears somewhere in the log.

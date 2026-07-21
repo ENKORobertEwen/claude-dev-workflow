@@ -1,5 +1,18 @@
 # Changelog — dev plugin
 
+## 2.18.0 — /dev:implement: sichtbare Taskliste erzwingen
+
+**Problem fixed:** Step 1 said only "Create a task list with all phases" — vague
+enough that runs sometimes produced the visible Claude Code task list (task
+tools) and sometimes only prose. Phase progress was then invisible.
+
+**Change:** Step 1 now mandates creating the task list via the harness task
+tools (TaskCreate / TodoWrite fallback) BEFORE any other work — one task per
+phase (`Phase N: <title>`), exactly one `in_progress` at a time, `completed`
+immediately after each phase commit, extra tasks for PR/done-move/work-item
+wiring. A markdown checklist explicitly does not count. Resume path (step 2)
+additionally syncs the list against already-committed phases.
+
 ## 2.17.0 — Check-exempt commits: skip provably redundant `./do check` runs
 
 **Problem fixed:** `./do check` is expensive (time), and the verification rule

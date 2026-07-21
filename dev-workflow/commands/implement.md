@@ -161,7 +161,19 @@ IMPORTANT:
 
 - Read the plan file completely
 - Identify all phases
-- Create a task list with all phases
+- **Create the visible task list — MANDATORY, via the task tools.** Before any other
+  work (before branching, before the first sub-agent), create one task per plan phase
+  using the harness task tools (`TaskCreate`; if unavailable, `TodoWrite` — whatever
+  this environment provides for the user-visible task list). This is NOT optional and a
+  markdown checklist in your reply is NOT a substitute — if no task-tool call happens,
+  step 1 is incomplete.
+  - One task per phase, titled exactly `Phase N: <phase title from the plan>`, in plan
+    order.
+  - Status discipline: exactly one task `in_progress` at any time (the phase currently
+    executing); set it `completed` immediately after that phase's commit, then set the
+    next phase `in_progress`. Never batch status updates at the end.
+  - Extra pipeline steps that the plan doesn't model as phases (final PR, plan → done/
+    move, work-item wiring) get their own tasks appended after the phase tasks.
 
 ### 2. Create or Resume Branch
 
@@ -177,6 +189,8 @@ If the branch already exists (from a previous interrupted run):
 2. Check `git log --oneline` to determine which phases were already committed
 3. Skip completed phases and continue from the next incomplete phase
 4. Inform the user which phases were already done and where you're resuming from
+5. Sync the task list from step 1: mark every already-committed phase's task
+   `completed` right away, and set the phase you resume at to `in_progress`
 
 ### 3. Execute Each Phase
 

@@ -1,5 +1,31 @@
 # Changelog — dev plugin
 
+## 2.22.0 — Neues Command /dev:ui-design-fix-session
+
+**Problem fixed:** Interaktive Design-Feinschliff-Runden liefen bisher formlos im Chat: der
+Nutzer meldete Abweichungen, die Umsetzung wurde in Prosa zurückgemeldet, und offene Punkte
+gingen zwischen den Meldungen verloren. Es gab keine Spur davon, was gemeldet, umgesetzt oder
+zurückgestellt wurde — und keine Live-Sicht für den Nutzer.
+
+**Changes:**
+- Neues `commands/ui-design-fix-session.md`: Sitzung gegen ein Eltern-Work-Item (PBI/Bug);
+  jede gemeldete Abweichung wird **ein Task-Work-Item** darunter, mit Zustandsführung
+  `To Do → In Progress → Done` in Echtzeit, damit der Fortschritt auf dem Board sichtbar ist
+  statt im Chat.
+- Setup-Gate: erst Eltern-Work-Item und Styling-Kontrakt lesen, dann **nach Go des Nutzers**
+  die App lokal starten — die Prüfschleife des Nutzers ist der Kern des Modus.
+- Ebenen-Disziplin verbindlich: Ursache statt Symptom, Werte in die Token-Ebene, Bedienelemente
+  in gemeinsame Primitives. Ausdrückliche Regel gegen doppeltes Stylen desselben Controls auf
+  mehreren Seiten.
+- Verifikationspflicht vor jeder Fertigmeldung, inkl. Hinweis, dass Dev-Server-Logs auch alte
+  Fehler enthalten — der **letzte** Build muss sauber sein.
+- Festes dreiteiliges Antwortformat (umgesetzt / nicht umgesetzt / braucht Entscheidung).
+- Parkbahn für Nicht-Live-Arbeit (v. a. Backend-Änderungen mit Neustart): eigener Task,
+  gekennzeichnet, bleibt in `To Do` und wird nicht nebenbei erledigt.
+- Harte Regeln: kein Browser-Automatismus während der Sitzung (nur auf Wunsch als letzte
+  Instanz am Ende), strikt sequenziell, keine parallelen Sub-Agents auf demselben Arbeitsbaum.
+- Zwischencommits statt eines großen ungeprüften Arbeitsbaums am Ende.
+
 ## 2.21.0 — Neues Command /dev:feature (fachliches Refinement → Work Items)
 
 **Problem fixed:** Between "idea" and `/dev:plan` there was no command: business-level

@@ -1,5 +1,19 @@
 # Changelog — dev plugin
 
+## 2.22.1 — /dev:ui-design-fix-session: Eltern-Work-Item wird aufgeloest statt angenommen
+
+**Problem fixed:** Das Command setzte voraus, dass die uebergebene ID bereits ein taugliches
+Elternteil ist. Bei einem Feature waeren die Tasks direkt darunter gelandet — zu grob, und die
+Sitzung haette keinen eigenen Traeger gehabt.
+
+**Changes:**
+- Der Typ des uebergebenen Work Items wird **geladen und geprueft**, nicht aus der Nummer
+  geschlossen: PBI/Bug werden direkt verwendet; bei einem **Feature** wird zuerst ein passendes
+  **Product Backlog Item** darunter angelegt (Titel/Beschreibung vorschlagen, Freigabe abwarten)
+  und dieses als Elternteil genutzt; andere Typen werden mit Begruendung zurueckgewiesen.
+- Ohne ID wird nach dem Work Item gefragt.
+- Das ermittelte Elternteil wird vor der ersten Meldung ausdruecklich genannt.
+
 ## 2.22.0 — Neues Command /dev:ui-design-fix-session
 
 **Problem fixed:** Interaktive Design-Feinschliff-Runden liefen bisher formlos im Chat: der

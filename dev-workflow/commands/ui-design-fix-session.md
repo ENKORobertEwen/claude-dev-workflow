@@ -17,17 +17,30 @@ sub-agent orchestration. It is you, a running app, and a stream of small correct
 
 ## Input
 
-`$ARGUMENTS` is the **ID of the parent work item** — normally a Product Backlog Item, or a
-Bug. It is context, not a task list: it tells you which feature the session belongs to and
-where the Tasks you create must hang.
+`$ARGUMENTS` is a **work item ID**. It is context, not a task list: it tells you which piece
+of work the session belongs to and where the Tasks you create must hang.
 
-If no ID was given, ask for one before doing anything else. Do not start without a parent —
-untracked Tasks defeat the purpose of this command.
+Resolve it to a parent before doing anything else — **load the work item and read its type**,
+do not assume it from the number:
+
+- **Product Backlog Item or Bug** → this is the parent. Use it directly.
+- **Feature** → a Feature is too coarse to hang Tasks off. **Create a Product Backlog Item
+  under it** for this round of work, and use that PBI as the parent. Propose title and
+  description to the user and get approval before creating it — the PBI is the record of what
+  this session was for, so its wording matters. Title it after the work, not after the
+  session (e.g. "Beitragsübersicht auf das Design-System angleichen").
+- **Anything else** (Epic, Task, …) → say why it does not work as a parent and ask for the
+  right one.
+- **No ID given** → ask which work item the session belongs to. Do not start without a
+  parent; untracked Tasks defeat the purpose of this command.
+
+State clearly which work item ended up as the parent before the first report comes in.
 
 ## Setup (before the first report)
 
-1. **Load the parent work item.** Read its title, description and acceptance criteria so you
-   know what the session is about. Confirm to the user in one line what you loaded.
+1. **Resolve and load the parent** as described under *Input* — including creating the PBI
+   first if a Feature was given. Read its title, description and acceptance criteria so you
+   know what the session is about. Confirm in one line which work item is now the parent.
 
 2. **Read the project's design and styling contract.** At minimum the project `CLAUDE.md` and
    any sub-directory `CLAUDE.md` for the app you are touching, plus whatever design reference

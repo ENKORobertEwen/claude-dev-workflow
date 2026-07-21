@@ -1,5 +1,30 @@
 # Changelog — dev plugin
 
+## 2.19.0 — Frische Sub-Agents + deterministisches Kontext-Paket + Modell-Pinning
+
+**Problem fixed (1/2 — gekoppelt):** Orchestrators sometimes CONTINUED sub-agents
+across phases/cycles (SendMessage) instead of spawning fresh ones — context fills
+up, quality degrades, earlier-phase assumptions leak forward, the UI reviewer
+stops being blind. But reuse silently compensated a second defect: the hand-off
+was "paste ... any relevant context" — pure judgment. Enforcing fresh agents
+without fixing the hand-off would regress.
+
+**Changes:**
+- implement.md: "Sub-agent lifecycle: fresh, always" — every launch is a NEW
+  agent, no continuation ever (not even follow-up questions); artifacts are the
+  only interface. Clarified: the running APP may be reused between frontend
+  phases, the reviewer agent may not.
+- implement.md: deterministic hand-off — non-frontend sub-agents read the plan
+  file themselves (only Phase N); frontend sub-agents get an assembled, filtered
+  packet (phase block + UI/UX Spec + decisions + registers + explicitly
+  referenced sections, chains resolved). Asymmetry rationale documented.
+- plan.md: phase-isolation rule — cross-block dependencies only via explicit
+  named references (implement resolves exactly these); Reviewer 4 checks it.
+- Model pinning: plan.md runs on Fable 5 (frontmatter + model guard; reviewers
+  model 'fable'); implement.md frontmatter claude-opus-4-8; implementation/fix/
+  UI-review sub-agents 'opus', verification 'haiku'; graceful fallback when a
+  model is unavailable.
+
 ## 2.18.0 — /dev:implement: sichtbare Taskliste erzwingen
 
 **Problem fixed:** Step 1 said only "Create a task list with all phases" — vague

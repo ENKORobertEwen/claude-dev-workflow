@@ -1,4 +1,16 @@
+---
+description: Create a decision-complete, phased feature plan (sub-agent-reviewed) in product/plans/todo/
+argument-hint: [feature description | work item | plan file path]
+model: claude-fable-5
+---
+
 # Plan Command
+
+**Model guard:** This command is designed to run on **Fable 5** (`claude-fable-5`) — the
+planning conversation itself is the deliverable. At the start, check which model you are
+running as (your system prompt states it). If it is not Fable 5, tell the user before doing
+anything else and recommend switching via `/model claude-fable-5`; continue only if they
+decline.
 
 You are creating a feature plan. Plans document what will be built, how it will be implemented phase by phase, and what DDD/ADR work is needed. The plan is a document — you do NOT execute any changes.
 
@@ -211,6 +223,14 @@ Create the plan file at `product/plans/todo/XXX-PLAN-FEATURE-NAME.md`.
 Use the following format. Order phases logically. DDD/ADR phases typically come before or alongside the code phases they document. The acceptance test scaffold phase is always first.
 
 **Every instruction in the plan must be specific and unambiguous.** Don't write "implement appropriate error handling" — write "return HTTP 422 with body `{ "error": "invalid_email", "message": "Email must contain @" }` when the email field fails validation." The implementer should be able to work mechanically.
+
+**Phase isolation via explicit references.** A phase may rely on plan content outside its own
+block — central sections (overview decisions, UI/UX Spec, deviation registers) or other
+phases — **only through explicit, named references** ("see UI/UX Spec → States", "confirmation
+dialog as specified in Phase 8"), never through implicit knowledge. `/dev:implement` resolves
+exactly these references into the implementation sub-agent's hand-off packet, so a dependency
+without an explicit reference is a plan defect. (References to existing code or repo artifacts
+are exempt — the implementer reads those itself.)
 
 The plan should reflect all the decisions made with the user in step 3.
 
@@ -501,6 +521,7 @@ This is the most critical reviewer. Checks:
 - Are error handling strategies explicit for each case?
 - Are naming conventions specified (file names, function names, variable names)?
 - Would two different implementers produce substantially the same result from this plan?
+- Is every phase executable from its own block **plus its explicitly referenced sections** — with no dependency on unreferenced plan parts or on conversation context (phase isolation)?
 
 **Frontend caveat:** purely visual micro-details (exact pixel spacing, hover/focus styling, transitions, micro-copy) do NOT need to be pinned down — the implementer is expected to apply design judgment there, guided by the UI/UX Spec and the `frontend-design` skill. Flag a frontend phase only when the *design direction, tokens, screens, or required states* are missing — not when a transition duration is unspecified.
 
@@ -524,7 +545,7 @@ Skip this reviewer if the plan has no UI/UX Spec or no design source (Figma Mapp
 - **Loophole audit.** Does any classification or exception rule in the plan (e.g. a deviation-reported definition) allow a *visible* deviation to survive unresolved? Such rules must be exhaustively narrow — the only legitimate reportable deviation is: a measured value matches no existing token. Any rule broad enough to let an implementer classify a visible mismatch as "reported" instead of fixing it is a finding.
 
 **Process:**
-1. Launch the reviewers in parallel as sub-agents (Reviewer 5 only if the plan has a frontend; Reviewer 6 only if the plan is design-sourced). Provide each with the full plan text and the relevant codebase context; Reviewer 6 additionally gets the design-source references (Figma URLs/node IDs from the plan) and uses the Figma MCP tools directly.
+1. Launch the reviewers in parallel as sub-agents (Reviewer 5 only if the plan has a frontend; Reviewer 6 only if the plan is design-sourced). Launch every reviewer with `model: 'fable'` (the review is the plan's quality gate and must not depend on the session model; if the model is unavailable on this account, launch without the override and note it). Provide each with the full plan text and the relevant codebase context; Reviewer 6 additionally gets the design-source references (Figma URLs/node IDs from the plan) and uses the Figma MCP tools directly.
 2. Collect all findings.
 3. Synthesize: resolve each finding by updating the plan.
 4. Run one final holistic review sub-agent with fresh eyes on the updated plan. This reviewer checks the whole plan end-to-end, including that the fixes from step 3 didn't introduce new issues.

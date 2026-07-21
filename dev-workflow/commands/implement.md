@@ -1,3 +1,9 @@
+---
+description: Execute a plan phase by phase via fresh sub-agents with mandatory verification
+argument-hint: [plan file path (optional)]
+model: claude-opus-4-8
+---
+
 # Implement Plan Command
 
 You are the orchestrator. Your job is to execute a plan by delegating ALL work to sub-agents. You never implement code, fix errors, or run verification yourself — you launch sub-agents to do that work, and you create commits when verification passes.
@@ -22,14 +28,65 @@ Non-frontend phases follow the plain implement → verify → commit cycle.
 
 ## Four Types of Sub-Agents
 
+### Sub-agent lifecycle: fresh, always
+
+Every "launch X sub-agent" in this command means: spawn a **NEW** sub-agent with a fresh
+context. NEVER continue a previously spawned sub-agent (via SendMessage / agent id) — not
+across phases, not across verify-fix or review-fix cycles, not for the UI reviewer. No
+exceptions — including "just a follow-up question" to a finished agent; if a report is
+unclear, inspect the working tree (`git status`/`git diff`) yourself.
+
+Why: sub-agents communicate exclusively through artifacts — the hand-off packet, log file
+paths, numbered issue lists. A fresh agent needs nothing else. A continued agent re-feeds its
+entire growing transcript on every message (more expensive, not cheaper), degrades as its
+context fills, drags earlier-phase assumptions into later phases, and — for the UI reviewer —
+stops being blind. If a sub-agent needs something from an earlier stage, pass it the
+artifact, never the agent.
+
+### Sub-agent models
+
+Pin the model per sub-agent type at launch (Agent tool `model` parameter), independent of the
+session model:
+
+| Sub-agent | Model |
+|---|---|
+| Implementation (all phases) | `opus` (claude-opus-4-8) |
+| Fix | `opus` |
+| UI review | `opus` |
+| Verification | `haiku` — it only runs `./do check` and classifies the outcome |
+
+If a pinned model is unavailable on this account, launch without the override (inherit) and
+note the substitution in the final summary — do not fail the run.
+
 ### 1. Implementation Sub-Agent
 
-Receives a phase description and implements it. Instructions to give the sub-agent:
+Implements exactly one phase. **Hand-off is deterministic — never decide case-by-case what is
+"relevant":**
+
+- **Non-frontend phases:** do NOT paste the phase text. Give the sub-agent the plan file
+  path plus the phase number and title, and instruct it to read the plan itself and
+  implement ONLY that phase. Reading the full plan resolves all cross-references
+  (central sections, other phases) with zero guesswork.
+- **Frontend phases:** paste an assembled packet — the sub-agent must NOT read the plan file
+  (see the filter rule in step 3a). The packet contains: the phase block verbatim (goal,
+  Design Notes, acceptance-test table, changes table, verification) + the complete UI/UX
+  Spec + the plan's overview/decisions section + any deviation register + every plan
+  section or phase block the phase text explicitly references (follow reference chains).
+  Apply the step-3a filter to the assembled packet as a whole.
+- Rationale for the asymmetry (do not "simplify" it away): frontend implementers must
+  believe they are the last instance, which requires physically filtered text — telling an
+  agent to *ignore* mentions of later review only highlights them. Non-frontend phases have
+  no such failure mode, so reading the full plan is the more robust hand-off.
+
+Instructions to give the sub-agent:
 
 ```
-Implement the following phase from the plan:
+Implement ONLY the following phase from the plan:
 
-[paste the phase description, including goal, changes table, and any relevant context]
+[non-frontend phases: "The plan is at <plan file path>. Read it fully, then implement
+ONLY Phase N: <title>. The rest of the plan is context — do not implement any other
+phase's work."]
+[frontend phases: paste the assembled packet defined above]
 
 Context:
 - Read CLAUDE.md for project conventions
@@ -37,6 +94,7 @@ Context:
 - Follow existing patterns in the codebase
 
 Rules:
+- Implement ONLY the specified phase — nothing from other phases
 - Do NOT run ./do check
 - Do NOT create any commits
 - NEVER ask questions or use AskUserQuestion — just implement what the phase says
@@ -196,13 +254,14 @@ If the branch already exists (from a previous interrupted run):
 
 For EACH phase in the plan:
 
-**a) Launch implementation sub-agent**
-- Provide the phase description with full context
+**a) Launch a fresh implementation sub-agent** (model `opus`)
+- Hand off per the deterministic rule in sub-agent type 1: plan path + phase number for
+  non-frontend phases, the assembled packet for frontend phases
 - For frontend phases, launch it in **frontend mode** (see sub-agent type 1)
-- **For frontend phases, filter the phase text before pasting it:** remove every mention of downstream review stages, visual sign-off, human acceptance, `figma-accept`, or the PR process — even if the plan's phase text mentions them. The implementation sub-agent must believe it is the last instance; knowledge of a later review invites deferring fixes to it.
+- **For frontend phases, filter the assembled packet before pasting it:** remove every mention of downstream review stages, visual sign-off, human acceptance, `figma-accept`, or the PR process — even if the plan's text mentions them. The implementation sub-agent must believe it is the last instance; knowledge of a later review invites deferring fixes to it.
 - Wait for completion
 
-**b) Launch verification sub-agent — unless the phase is check-exempt**
+**b) Launch a fresh verification sub-agent (model `haiku`) — unless the phase is check-exempt**
 
 Before launching, check whether this phase's changes are check-exempt: run `git status --porcelain` and collect every changed/untracked file. The phase is exempt **iff EVERY file** matches a check-exempt glob — plugin default `product/**`, plus any globs the project CLAUDE.md declares under `### Check-Exempt Paths`. Decide on the actual file list, never on what the plan's phase text claims to change.
 
@@ -214,18 +273,18 @@ Before launching, check whether this phase's changes are check-exempt: run `git 
 **c) Handle verification result**
 
 - **PASS** → Proceed to visual review (frontend phases) or commit (other phases)
-- **CODE FAILURE** → Launch fix sub-agent with the log file path, then launch verification sub-agent again. Repeat up to 3 verify-fix cycles. If still failing after 3 cycles, STOP and inform the user.
+- **CODE FAILURE** → Launch a fresh fix sub-agent (model `opus`) with the log file path, then a fresh verification sub-agent (model `haiku`) again. Repeat up to 3 verify-fix cycles. If still failing after 3 cycles, STOP and inform the user.
 - **INFRASTRUCTURE FAILURE** → STOP. Inform the user about the infrastructure issue and the log file path. Do NOT retry, do NOT ask questions.
 
 **c2) Visual review (frontend phases only)**
 
 After `./do check` passes, and only for frontend phases:
 
-- Launch the **UI review sub-agent** for the screens/states this phase touched — blind (see sub-agent type 4): for Figma-sourced phases pass the mapped node IDs; never pass the implementer's report, findings docs, or any deviation list. Wait for result.
+- Launch a **fresh UI review sub-agent** (model `opus`) for the screens/states this phase touched — blind (see sub-agent type 4): for Figma-sourced phases pass the mapped node IDs; never pass the implementer's report, findings docs, or any deviation list. Wait for result.
 - **UI PASS** → Proceed to commit.
-- **UI ISSUES** → Launch a fix sub-agent with the issue list (in frontend mode), then re-run the verification sub-agent (`./do check` must stay green), then launch the UI review sub-agent again. Repeat up to 3 review-fix cycles. If issues remain after 3 cycles, do NOT block: proceed to commit, and record the remaining UI issues so they surface in the final summary and PR body.
+- **UI ISSUES** → Launch a fresh fix sub-agent (model `opus`, frontend mode) with the issue list, then a fresh verification sub-agent (`./do check` must stay green), then a fresh UI review sub-agent again. Repeat up to 3 review-fix cycles. If issues remain after 3 cycles, do NOT block: proceed to commit, and record the remaining UI issues so they surface in the final summary and PR body.
 
-This keeps any visual fixes folded into the same phase commit. The app may stay running between frontend phases — the UI review sub-agent reuses it rather than restarting each time.
+This keeps any visual fixes folded into the same phase commit. The **application process** may stay running between frontend phases — reuse the running app rather than restarting it. The UI review **sub-agent itself is still a fresh agent** every time it is launched.
 
 **c3) Ledger write-back (Figma-sourced frontend phases only)**
 

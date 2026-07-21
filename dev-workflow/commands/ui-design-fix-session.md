@@ -221,3 +221,26 @@ When the user signals the end:
 
 **Commit during the session, not only at the end.** A long session accumulates a large
 unverified working tree; propose an intermediate commit whenever a coherent block is green.
+
+### The verification gate for this mode
+
+This mode overrides the project's usual "full gate before every commit" rule — **for local
+commits made during the session only**. It does not change the rule anywhere else.
+
+| Point | What must pass |
+|---|---|
+| While iterating on an item | nothing — run whatever gives you fast feedback |
+| **Local commit during the session** | the **narrow target** covering the area you touched (e.g. `./do test webmanager`), plus any style/architecture guards that the narrow target does not run |
+| **Pushing, opening a PR, or ending the session** | the project's **full gate** (e.g. `./do check`), green |
+
+The reason for the relaxation is observed behaviour, not convenience: when every intermediate
+commit costs a full gate run, sessions stop committing and accumulate a large uncommitted tree
+— which is the exact risk the rule exists to prevent. A commit that a fast targeted check
+passed is worth far more than a commit that never happened.
+
+The reason the narrow check is still **required** is bisectability: a history where half the
+commits are broken cannot be searched later, and that is precisely when you need it.
+
+Commits touching **only** check-exempt paths (the project's documentation/spec directories)
+need no run at all — the project already carves this out; follow its declaration rather than
+inventing one.

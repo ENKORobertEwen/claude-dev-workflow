@@ -1,5 +1,22 @@
 # Changelog — dev plugin
 
+## 2.24.0 — ui-design-fix-session: abgestufte Verifikation fuer Commits waehrend der Session
+
+**Problem fixed:** Der Command forderte Zwischen-Commits, liess aber offen, welches Gate dafuer
+gilt — also galt implizit das volle Projekt-Gate. Ein voller Lauf je Commit ist teuer genug,
+dass Sessions das Committen aufschieben und einen grossen ungepruefen Arbeitsbaum aufstauen.
+Genau das Risiko, das die Regel verhindern soll. Beobachtet in einer Session, die acht fertige,
+je einzeln gruene Aufgaben zu einem einzigen uncommitteten Klumpen anwachsen liess.
+
+**Changes:**
+- Neuer Abschnitt „The verification gate for this mode" mit drei Stufen: waehrend der Iteration
+  nichts, beim **lokalen Commit** das schmale Ziel des beruehrten Bereichs plus die Guards, die
+  es nicht mitlaeuft, beim **Push/PR/Session-Ende** das volle Gate.
+- Die Lockerung gilt **ausdruecklich nur in diesem Modus** und aendert die Projektregel nicht.
+- Begruendung mit dokumentiert: das schmale Ziel bleibt Pflicht, weil eine Historie aus halb
+  kaputten Commits nicht mehr bisect-bar ist — und genau dann braucht man sie.
+- Hinweis auf die bereits bestehende Ausnahme fuer reine Dokumentations-/Spec-Pfade.
+
 ## 2.23.0 — ui-design-fix-session: Orchestrator bleibt beim Nutzer, ein langlebiger Umsetzungs-Agent
 
 **Problem fixed:** Der Hauptagent steckte waehrend Umsetzung und Verifikation fest; neue

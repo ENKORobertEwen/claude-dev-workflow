@@ -190,16 +190,24 @@ If they send several messages in a row, finish the current one, report it, then 
 The user tests each `Ready - In Test` Task in their own browser. Two outcomes:
 
 - **Pass** → the user sets the Task to `Done` themselves. Nothing for you to do.
-- **Fail** → the user moves the Task back to **`In Progress`** and typically leaves a
+- **Fail** → the user moves the Task back to **`To Do`** and typically leaves a
   **comment** on the work item saying what is still wrong.
 
-A Task in `In Progress` that you did not just dispatch is therefore a **returned item** —
+`In Progress` stays yours alone: it means "the agent is working on this right now", and
+only you set it. The state model is thus: `To Do` = waiting for the agent (new or
+returned), `In Progress` = agent active (set by you), `Ready - In Test` = waiting for the
+user's test, `Done` = test passed (set by the user).
+
+A Task in `To Do` that you had previously set to `Ready - In Test` is a **returned item** —
 and it outranks the queue: fix it before starting the next new report. A fix the user is
-waiting to re-test beats a deviation nobody has looked at yet.
+waiting to re-test beats a deviation nobody has looked at yet. Treat a Task unexpectedly
+sitting in `In Progress` that you did not just dispatch the same way (defensive — the user
+may have used the old convention or mis-dragged), but the agreed return state is `To Do`.
 
 **Check for returned items at every natural pause**: after handing an item over, before
 dispatching the next queued one, and when the user goes quiet for a while. Query the
-parent's child Tasks for state `In Progress`, excluding the one currently dispatched. For
+parent's child Tasks and compare against what you have handed over: any of "your"
+`Ready - In Test` Tasks now back in `To Do` (or `In Progress`, see above) is returned. For
 each hit, read the work item's **comments** (the comments API — the description will not
 contain the feedback). Comment missing or unclear → ask the user instead of guessing.
 

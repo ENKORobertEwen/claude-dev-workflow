@@ -1,5 +1,18 @@
 # Changelog — dev plugin
 
+## 2.26.0 — ui-design-fix-session: Rueckgabe-State ist To Do, In Progress gehoert dem Agenten
+
+**Problem fixed:** 2.25.0 liess den Nutzer fehlgeschlagene Tests auf `In Progress`
+zurueckschieben — dieselbe Spalte, die "der Agent arbeitet gerade" bedeutet. Das Board wurde
+mehrdeutig (Nutzerwunsch aus der Session vom 22.07.).
+
+**Changes:**
+- Rueckgabe-State ist **`To Do`**; `In Progress` setzt ausschliesslich der Orchestrator beim
+  Dispatch. Zustandsmodell: To Do = wartet auf Agent (neu oder Rueckgabe), In Progress =
+  Agent aktiv, Ready - In Test = wartet auf Nutzertest, Done = Test bestanden (nur Nutzer).
+- Rueckgabe-Erkennung: eigene frueher auf Ready - In Test gesetzte Tasks, die wieder in
+  To Do stehen; unerwartete In-Progress-Tasks defensiv genauso behandeln.
+
 ## 2.25.0 — ui-design-fix-session: Ready - In Test als Uebergabe-State + Re-Test-Schleife
 
 **Problem fixed:** Der Command setzte Tasks nach der Umsetzung direkt auf Done — der Nutzer

@@ -1,5 +1,22 @@
 # Changelog — dev plugin
 
+## 2.25.0 — ui-design-fix-session: Ready - In Test als Uebergabe-State + Re-Test-Schleife
+
+**Problem fixed:** Der Command setzte Tasks nach der Umsetzung direkt auf Done — der Nutzer
+konnte auf dem Board nicht sehen, welche Aenderungen auf seinen Test warten, und ein
+fehlgeschlagener Test hatte keinen definierten Rueckweg.
+
+**Changes:**
+- Nach Umsetzung + Verifikation + Commit geht ein Task auf **`Ready - In Test`** statt Done.
+  Done setzt der Nutzer selbst, wenn sein Browser-Test besteht.
+- **Re-Test-Schleife:** Schiebt der Nutzer einen Task zurueck auf `In Progress`, ist das ein
+  Returned Item — es schlaegt die Warteschlange. An jeder natuerlichen Pause die Kind-Tasks
+  des Parents auf `In Progress` pruefen (ohne den gerade laufenden), die **Kommentare** des
+  Work Items lesen (Comments API), bei Unklarheit nachfragen; Fix als Folge-Commit auf
+  denselben Task, danach wieder `Ready - In Test`.
+- Session-Ende: kein Task in `In Progress`; Tasks in `Ready - In Test` duerfen offen bleiben
+  und werden in der Zusammenfassung gelistet.
+
 ## 2.24.0 — ui-design-fix-session: abgestufte Verifikation fuer Commits waehrend der Session
 
 **Problem fixed:** Der Command forderte Zwischen-Commits, liess aber offen, welches Gate dafuer

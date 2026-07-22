@@ -166,9 +166,13 @@ check is red, it gets fixed or the item is reported as not done.
 Note that a dev server log contains the errors of *earlier* builds too — confirm the **latest**
 build is clean, not merely that a clean build appears somewhere in the log.
 
-### 5. Close the Task and report
+### 5. Hand the Task over to test and report
 
-Set the Task to **`Done`**, then reply in exactly three parts:
+Set the Task to **`Ready - In Test`** — that state is the signal the user watches for: it
+means "implemented, verified, committed — you can test this in the browser now". Do **not**
+set `Done`: closing the Task is the user's move, after their own test passes.
+
+Then reply in exactly three parts:
 
 - **Umgesetzt** — what changed, and in which files/tier.
 - **Nicht umgesetzt** — anything from the report you did not do, with the reason.
@@ -180,6 +184,29 @@ change, an accessibility trade-off — belongs in the report even when it was th
 Then wait for the next report. **Do not start the next item while one is open**: the user
 verifies each change in the browser, and overlapping changes make a regression unattributable.
 If they send several messages in a row, finish the current one, report it, then take the next.
+
+## Failed tests come back: the re-test loop
+
+The user tests each `Ready - In Test` Task in their own browser. Two outcomes:
+
+- **Pass** → the user sets the Task to `Done` themselves. Nothing for you to do.
+- **Fail** → the user moves the Task back to **`In Progress`** and typically leaves a
+  **comment** on the work item saying what is still wrong.
+
+A Task in `In Progress` that you did not just dispatch is therefore a **returned item** —
+and it outranks the queue: fix it before starting the next new report. A fix the user is
+waiting to re-test beats a deviation nobody has looked at yet.
+
+**Check for returned items at every natural pause**: after handing an item over, before
+dispatching the next queued one, and when the user goes quiet for a while. Query the
+parent's child Tasks for state `In Progress`, excluding the one currently dispatched. For
+each hit, read the work item's **comments** (the comments API — the description will not
+contain the feedback). Comment missing or unclear → ask the user instead of guessing.
+
+A returned item runs through the same loop as a fresh report: dispatch to the
+implementation agent (the user's comment plus the original context package is the brief),
+verify, commit as a **follow-up commit referencing the same Task**, set it back to
+`Ready - In Test`, and report what changed this time.
 
 ## Parked work: anything you cannot do in this mode
 
@@ -213,19 +240,22 @@ migration, a change requiring the app to be restarted in a different configurati
 
 When the user signals the end:
 
-1. Confirm no Task is left in `In Progress`.
+1. Confirm no Task is left in `In Progress` — a returned item still open means the session
+   is not finished. Tasks in **`Ready - In Test`** may remain: the user closes them as
+   their tests pass, possibly after the session ends. List them explicitly in the summary.
 2. Run the project's **full verification gate** (e.g. `./do check`) and get it green. If it is
    red, fix it or report precisely what is red — do not commit over it.
 3. Commit anything still uncommitted and integrate per the project's branching rules,
    referencing the parent work item.
 4. **Push, then wire the commits to their Tasks** — this is the point at which the links
-   resolve, and the reason they were not created earlier. For each Task closed during the
-   session, attach its commit to the work item the way the project documents it, and follow
+   resolve, and the reason they were not created earlier. For each Task handed over during
+   the session, attach its commit to the work item the way the project documents it, and follow
    whatever the project's work-item lifecycle requires (PR links, states).
-5. Summarise: Tasks done, Tasks parked, and anything still open.
+5. Summarise: Tasks done, Tasks still in `Ready - In Test`, Tasks parked, and anything
+   still open.
 
-**Commit after every closed Task — by default, without asking.** One Task is one commit. Do it
-as part of closing the item, in the same breath as setting the state to `Done`: the narrow check
+**Commit after every finished Task — by default, without asking.** One Task is one commit. Do it
+as part of handing the item over, in the same breath as setting the state to `Ready - In Test`: the narrow check
 has just passed, the change is small, and its scope is exactly one reported deviation. Waiting
 for "a coherent block" is what produces the large uncommitted tree this rule exists to prevent.
 

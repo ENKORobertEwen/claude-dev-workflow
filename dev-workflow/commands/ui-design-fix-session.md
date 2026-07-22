@@ -120,6 +120,10 @@ Create a **Task** work item, parented to the input work item:
 - **Title:** the user's report, condensed to one line.
 - **Description:** their wording verbatim, plus the screen/route it concerns.
 - **State:** `To Do` on creation.
+- **Assigned To:** the user driving the session — they are the tester every Task returns
+  to, so the board must show the items as theirs. Set it in the create call, along with
+  whatever classification the project's conventions require on work items (e.g. a fixed
+  iteration path); do not leave these to a later batch repair.
 
 Then set it to **`In Progress`**. The user is watching the board; the state must reflect
 reality at all times, not be corrected in a batch afterwards.

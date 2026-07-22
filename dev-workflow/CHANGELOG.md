@@ -1,5 +1,13 @@
 # Changelog — dev plugin
 
+## 2.27.0 — ui-design-fix-session: Tasks dem Session-Ausloeser zuweisen
+
+**Changes:** Jeder in der Session angelegte Task bekommt beim Anlegen `Assigned To` =
+der Nutzer, der die Session faehrt (er ist der Tester, zu dem jeder Task zurueckkehrt) —
+zusammen mit den Projekt-Konventionen fuer Klassifikation (z. B. fester Iteration Path)
+direkt im Create-Call statt spaeterer Sammelreparatur. (Nutzerwunsch 22.07., Session 12431:
+Assigned To fehlte, Iteration Path musste nachgezogen werden.)
+
 ## 2.26.0 — ui-design-fix-session: Rueckgabe-State ist To Do, In Progress gehoert dem Agenten
 
 **Problem fixed:** 2.25.0 liess den Nutzer fehlgeschlagene Tests auf `In Progress`

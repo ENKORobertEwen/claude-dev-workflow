@@ -614,6 +614,26 @@ No `./do check` is needed here: the commit touches only `product/**`, which is c
 
 The plan is now on main and ready for `/dev:implement` to pick up.
 
+### 15. Mark the Covered Work Items
+
+If the feature is tracked in a work-item tracker (Azure DevOps, GitHub Issues, Jira, …),
+mark every work item the plan covers, immediately after the push:
+
+- **Tag every covered PBI/user story and Bug with the plan number** (e.g. `P033`) in the
+  tracker's tag field. An item covered by several plans in slices carries several plan tags.
+- **Do NOT tag Features/Epics** — their plan mapping is readable through their tagged
+  child items.
+- **The tag is the only marker. Never edit the item's description** (or any other text
+  field) to record plan membership.
+- Set the state the project's documented work-item lifecycle prescribes for planned items
+  (e.g. `Approved`).
+- Be idempotent: re-running the marking must not duplicate tags or clobber existing ones.
+  Mind the tracker's API semantics — e.g. Azure DevOps `System.Tags` with `op: add`
+  merges old and new tags; removals need `op: replace` plus read-back verification.
+
+The project's documented tracker conventions (e.g. under `product/docs/`) take precedence
+over the defaults above.
+
 ## Critical Rules
 
 1. **The `/dev:plan` command writes the plan document, commits, and pushes.** It does NOT execute any code changes — no code, no DDD edits, no ADR creation. All of that happens when `/dev:implement` executes the plan.

@@ -1,5 +1,22 @@
 # Changelog — dev plugin
 
+## 2.28.0 — plan: Work-Item-Kennzeichnung nur per Plan-Tag auf PBIs/Bugs
+
+**Problem fixed:** feature.md delegiert Plan-Tags an `/dev:plan` ("plan tags are
+/dev:plan's job"), aber plan.md hatte gar keinen Work-Item-Schritt — die Kennzeichnung
+hing komplett an Projekt-Doku und Erinnerung.
+
+**Changes:** Neuer Schritt 15 "Mark the Covered Work Items" nach Commit+Push:
+- Jeder vom Plan abgedeckte PBI und Bug bekommt einen Plan-Tag (z. B. `P033`);
+  mehrere Tags, wenn mehrere Plaene das Item in Slices abdecken.
+- **Features/Epics werden NICHT getaggt** — Zuordnung ist ueber die getaggten
+  Kind-Items ablesbar.
+- **Der Tag ist der einzige Marker — Descriptions werden nie angefasst**
+  (Description-Marker-Konvention am 23.07. abgeschafft, Nutzerentscheid).
+- State gemaess dokumentiertem Projekt-Lifecycle (z. B. `Approved`); idempotent;
+  Azure-DevOps-Fallstrick `System.Tags` add-merged/replace-entfernt dokumentiert.
+- Projekt-Doku (z. B. `product/docs/`) hat Vorrang vor den Defaults.
+
 ## 2.27.0 — ui-design-fix-session: Tasks dem Session-Ausloeser zuweisen
 
 **Changes:** Jeder in der Session angelegte Task bekommt beim Anlegen `Assigned To` =
